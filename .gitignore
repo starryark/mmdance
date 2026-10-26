@@ -1,0 +1,42 @@
+# Third-party and character assets are never committed: bring your own, with permission.
+*.blend
+*.blend1
+*.blend@
+*.vmd
+*.vpd
+*.pmx
+*.pmd
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.rar
+*.zip
+*.7z
+*.mp4
+*.mov
+*.mkv
+*.npz
+*.npy
+*.fbx
+*.glb
+*.gltf
+*.png
+*.jpg
+*.jpeg
+!docs/media/*.png
+!docs/media/*.jpg
+
+# generated per project
+cache/
+render/
+build/
+source/
+textures/
+
+__pycache__/
+*.pyc
+.venv/
+
+# machine-specific overrides of a project.toml
+*.local.toml

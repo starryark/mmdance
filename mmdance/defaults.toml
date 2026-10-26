@@ -1,0 +1,239 @@
+# Defaults for every project. A project's project.toml overrides any key here.
+#
+# Conventions: Blender units are metres, Z is up and the character faces -Y in a T-pose (arms
+# along +-X). Lengths and heights below are in the character's rest pose. The shipped numbers
+# suit a character about 1 m tall (the size Tripo exports); scale them for other sizes
+# (`python -m mmdance inspect` prints suggestions).
+
+[project]
+name = "untitled"
+fps = 30
+frame_start = 0
+frame_end = -1                 # -1: the last key of the motion VMD
+
+[paths]                        # relative to the folder holding project.toml
+character = ""                 # the rigged character .blend (read only, never modified)
+cache = "cache"
+textures = "textures"          # generated face atlases / cleaned face texture
+blend = "build/scene.blend"    # the generated, animated scene
+frames = "render/frames/frame_"   # PNG sequence prefix (frame number + .png is appended)
+video = "build/video.mp4"
+
+[tools]
+python = "python"              # system Python with numpy, scipy, opencv-python, scikit-image, pillow
+blender = "blender"
+ffmpeg = "ffmpeg"
+
+[character]
+rig = ""                       # armature object; "" = the only armature in the file
+body = ""                      # main skinned mesh; "" = the largest mesh deformed by the rig
+outline_group = "Outline"      # vertex group of an outline shell, kept when re-weighting ("" = none)
+
+[bones]
+prefix = "mixamorig:"          # Mixamo naming (Tripo, Meshy, Mixamo, AccuRig exports)
+[bones.map]                    # Mixamo role -> your bone name, for rigs named differently
+# Hips = "pelvis"
+
+[motion]
+vmd = ""                       # the dance (required)
+scale = 0.0                    # metres per MMD unit; 0 = auto: leg length / 9.42 (a standard MMD leg)
+arm_angle = 37.0               # MMD's rest pose has the arms this many degrees below horizontal
+center_height = 8.0            # height of the MMD センター pivot, MMD units
+
+[camera]
+vmd = ""                       # MMD camera motion; "" = a static front camera
+resolution = [1920, 1080]
+clip = [0.02, 200.0]
+# Custom shots replace the MMD camera over a frame range (a camera tracking a look-at target):
+# [[camera.shots]]
+# name = "Intro"
+# start = 0
+# end = 110                    # first frame back on the MMD camera
+# lens = 40
+# fstop = 2.8                  # 0 = no depth of field
+# keys = [[0, [-0.58, -0.98, 1.12], [0.04, -0.07, 0.47]],   # [frame, camera location, look-at]
+#         [109, [-0.30, -1.26, 0.80], [0.04, -0.07, 0.50]]]
+
+[audio]
+file = ""                      # the song (.wav): a preview strip in Blender, and muxed into the MP4
+
+[face]
+mode = "none"                  # "none" | "atlas" (painted face texture) | "shapekeys"
+vmd = ""                       # facial track; "" = the morph keys in the motion VMD
+
+[face.morphs]                  # VMD morph names (standard MMD Japanese names)
+blink = "まばたき"
+wink_left = "ウィンク"          # the character's left eye
+wink_right = "ウィンク右"
+smile = "笑い"
+a = "あ"
+i = "い"
+u = "う"
+e = "え"
+o = "お"
+wa = "ワ"
+smirk = "にやり"
+
+[face.atlas]                   # mode = "atlas": expression tiles composited over the face painting
+material = ""                  # the face material
+texture = ""                   # face painting; "" = the image in `base_node`
+base_node = ""                 # image node feeding the shader; "" = auto (the one linked to shader_input)
+shader_node = ""               # node receiving the face colour; "" = auto
+shader_input = "Base Color"
+uv_node = ""                   # "" = auto (an existing UV Map node, else one is added)
+mouth_min_hold = 2             # frames each mouth shape is held at least (no lip-sync flicker)
+clean = false                  # write a cleaned copy of the painting (halo_boxes / corner_box)
+halo_boxes = []                # [[x0, y0, x1, y1], ...] grey projection halos to inpaint (texture px)
+corner_box = []                # [x0, y0, x1, y1] block at an eye corner repainted as sclera/skin
+corner_eye = "L"
+skin_above = 34                # px of upper-lid skin above the lash band
+cheek_below = 46               # px of cheek below the lower lid (smile)
+mouth_center = [0, 0]          # texture px
+mouth_rect = [0, 0, 0, 0]      # x0, y0, x1, y1
+# eye guide curves (texture px, left to right), measured on the painting:
+# [face.atlas.eyes.L]          # L = image-left eye (the character's right eye)
+# lash_top = [[x, y], ...]     # upper edge of the painted lash band
+# lash_bot = [[x, y], ...]     # lower edge of the lash band (top of the eye opening)
+# lower    = [[x, y], ...]     # lower lid line
+# [face.atlas.eyes.R]
+
+[face.shapekeys]               # mode = "shapekeys"
+object = ""                    # mesh with the shape keys; "" = the body
+# map = { "まばたき" = "Blink", "あ" = "A" }   # VMD morph name -> shape key name
+
+[hair]                         # bone chains through the hair mass, rooted on the head
+enabled = false
+material = ""                  # hair material (required when enabled)
+rip_below = 0.86               # split hair/cloth seams below this height, so locks swing free
+columns = 17
+phi_range = [-150.0, 150.0]    # degrees round the head: 0 = back centre, + = character's left
+rows_z = [0.86, 0.78, 0.70, 0.62, 0.54, 0.46, 0.38]   # joint heights, root -> tips
+axis = [0.0, -0.03]            # x, y of the vertical axis the columns are laid round
+root_band = 0.04               # hair above rows_z[0] + this rides the head bone only
+min_count = 6                  # vertices a bin needs to extend a chain
+
+[skirt]                        # a ring of bone chains on the skirt's inner surface, rooted on the hips
+enabled = false
+materials = []                 # skirt materials; [] = every non-hair material below `top`
+top = 0.66                     # cloth below this height (and not the legs) is skirt
+columns = 24
+rows_z = [0.64, 0.58, 0.52, 0.455, 0.39, 0.325, 0.26, 0.195, 0.13]   # waist -> hem
+axis = [0.0, -0.02]
+
+[legs]                         # finding the legs as their own mesh island (kept out of the skirt)
+min_top = 0.5                  # the island reaches the floor and rises above this
+max_abs_x = 0.12
+
+[overskirt]                    # a second, outer gown layer (open-front panels) on its own chains
+enabled = false
+ztop = 0.60                    # only fabric below this is tested for a layer underneath
+min_gap = 0.006                # a panel joint always sits this far outside the skirt
+min_vertices = 25              # vertices a column needs to get a panel chain
+
+[hands]                        # rebuild fused hands from the finger bones (needs scikit-image)
+enabled = false
+material = ""                  # material slot used ONLY by the hands (its faces are replaced)
+line_material = ""             # matching outline material, if any
+skin_color = [0.937, 0.80, 0.74]   # linear RGB for the new hands
+scale = 0.0                    # size of the hand model; 0 = auto from the hand bones
+palm_plane_z = 0.0             # rest-pose palm mid-plane height; 0 = auto (wrist + knuckles)
+voxel = 0.00038
+decimate = 0.07
+outline_weight = 0.55          # weight in the outline group for the new hands
+
+[fixes]                        # optional weight repairs for auto-rigged meshes
+nape_seam = false              # hair/cloth seam at the nape: neck/head weights only
+waist_z = []                   # [z0, z1]: move thigh weights to the hips between these heights
+cross_side_legs_below = 0.0    # strip opposite-side leg weights below this height (0 = off)
+rigid_boots = false            # partition the legs: thigh / shin / foot / toe with short blends
+
+[physics]
+preroll = 90                   # frames held on the first pose before the dance (cloth settles)
+substeps = 8
+gravity = 0.0                  # m/s^2; 0 = 9.81 scaled to the character (scale / 0.08)
+boxes = []                     # extra box colliders [x0, x1, y0, y1, top] (floor is always on)
+
+[physics.skirt]
+relative = true
+elastic = [1.0, 0.30, 0.16, 0.10, 0.08, 0.065, 0.055, 0.05, 0.045]
+stiff_lim = [0.0, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.2]
+lying_relax = 0.8
+tether = [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 0.95, 1.1, 1.2]
+drag = 0.02
+gravity_comp = 0.85
+goal_lying = 1.0
+ring_mode = "range"
+ring_min = 0.82
+ring_max = 1.35
+ring_stiff = [0.0, 0.5, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.75]
+bend_chain = 0.25
+bend_min = 0.95
+bend_ring = 0.15
+bend_ring_min = 0.7
+edge_collide = true
+outer_rule = true
+radius = 0.012
+
+[physics.overskirt]
+relative = true
+elastic = [1.0, 0.28, 0.14, 0.09, 0.07, 0.06, 0.05, 0.045, 0.04]
+stiff_lim = [0.0, 0.6, 0.72, 0.85, 0.95, 1.05, 1.12, 1.18, 1.22]
+lying_relax = 0.8
+tether = [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 0.95, 1.1, 1.2]
+drag = 0.022
+gravity_comp = 0.8
+goal_lying = 1.0
+ring_mode = "range"
+ring_min = 0.75
+ring_max = 1.4
+ring_stiff = [0.0, 0.3, 0.25, 0.2, 0.18, 0.15, 0.15, 0.15, 0.15]
+bend_chain = 0.25
+bend_min = 0.95
+bend_ring = 0.0
+edge_collide = true
+outer_rule = false
+radius = 0.008
+
+[physics.hair]
+relative = false
+goal = [1.0, 0.14, 0.09, 0.06, 0.045, 0.035, 0.03]
+tether = [0.0, 0.06, 0.12, 0.18, 0.25, 0.32, 0.38]
+drag = 0.015
+gravity_comp = 1.0
+goal_lying = 0.3
+ring_stiff = 0.35
+ring_mode = "both"
+edge_collide = true
+max_push = 0.05
+
+[stage]
+builder = "default"            # "default" (floor + backdrop) or a project module "room.py"
+                               # defining build(collection, cfg) and optionally colliders(cfg)
+world = ""                     # world datablock to use; "" = the scene's world (or a new one)
+world_color = [1.0, 0.90, 0.80]
+world_strength = 0.17
+sun = ""                       # sun light to use; "" = the file's first sun, else a new "Stage_Sun"
+sun_rotation = [50.0, 0.0, 30.0]   # degrees, only for a created sun
+sun_energy = 4.0               # only for a created sun
+sun_angle = 2.5
+sun_color = [1.0, 0.95, 0.88]
+floor_color = [0.62, 0.58, 0.56]
+glow = true                    # compositor fog glow on bright areas
+glow_threshold = 0.92
+glow_strength = 0.45
+glow_size = 0.55
+
+[render]
+engine = "BLENDER_EEVEE"
+samples = 48
+raytracing = true
+filter_size = 1.1
+view_transform = "Standard"
+png_compression = 15
+
+[encode]
+crf = 14
+preset = "slow"
+tune = "animation"
+audio_bitrate = "256k"
+fade = 1.6                     # seconds of fade-out (picture and sound) at the end

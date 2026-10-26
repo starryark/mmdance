@@ -1,0 +1,101 @@
+# Claude (a Tripo-generated, toon-shaded anime character, 1 m tall, Mixamo rig) dancing akomni's
+# MMD motion チカっとチカ千花っ♡ (niconico sm34597101), with its camera, facial track and song,
+# in a rebuilt version of the original video's student-council room. See README.md.
+#
+# None of the assets are in this repository. Put them here (or point to them from a
+# project.local.toml next to this file):
+#   character/Claude_polished.blend   the rigged character
+#   source/motion.vmd, camera.vmd, facial.vmd, song.wav   from the MMD motion package
+
+[project]
+name = "Chika"
+fps = 30
+frame_start = 0
+frame_end = 2755
+
+[paths]
+character = "character/Claude_polished.blend"
+blend = "build/Claude_ChikaDance.blend"
+frames = "render/frames/chika_"
+video = "build/Claude_ChikaDance.mp4"
+
+[character]
+rig = "Claude_Rig"
+body = "Claude_Body"
+
+[motion]
+vmd = "source/motion.vmd"
+scale = 0.054
+
+[camera]
+vmd = "source/camera.vmd"
+
+# The MMD camera opens with a tight shot made for a slim model in a short skirt; with this ball
+# gown the lens would sit inside the skirt. She lies face-down on the desk kicking her boots, so
+# the intro gets its own camera: a high three-quarter view looking down on her, descending to
+# her side for the cut to the MMD camera's wide shot at frame 110.
+[[camera.shots]]
+name = "Intro"
+start = 0
+end = 110
+lens = 40
+fstop = 2.8
+keys = [[0, [-0.58, -0.98, 1.12], [0.04, -0.07, 0.47]],
+        [55, [-0.56, -1.14, 0.94], [0.03, -0.07, 0.48]],
+        [109, [-0.30, -1.26, 0.80], [0.04, -0.07, 0.50]]]
+
+[audio]
+file = "source/song.wav"
+
+[face]
+mode = "atlas"
+vmd = "source/facial.vmd"
+
+[face.atlas]
+material = "Claude_Face"
+clean = true
+mouth_center = [848, 1624]
+mouth_rect = [680, 1530, 1020, 1780]
+halo_boxes = [[600, 870, 1060, 1150]]      # grey halos round the strokes at the nose bridge
+corner_box = [138, 880, 252, 1075]         # grey blocks at the left eye's outer corner
+corner_eye = "L"
+
+[face.atlas.eyes.L]
+lash_top = [[160, 972], [200, 955], [250, 935], [300, 920], [350, 918], [400, 925], [440, 941], [480, 962], [520, 988], [560, 1018], [604, 1056]]
+lash_bot = [[160, 1004], [190, 986], [240, 975], [300, 968], [360, 968], [420, 975], [470, 990], [520, 1020], [570, 1054], [604, 1078]]
+lower = [[160, 1062], [180, 1086], [205, 1112], [250, 1145], [300, 1163], [350, 1167], [400, 1162], [460, 1155], [510, 1144], [560, 1115], [604, 1082]]
+
+[face.atlas.eyes.R]
+lash_top = [[1050, 1046], [1090, 1003], [1130, 963], [1180, 935], [1230, 914], [1280, 905], [1330, 900], [1380, 896], [1430, 895], [1480, 897], [1530, 903], [1570, 917], [1600, 935]]
+lash_bot = [[1050, 1050], [1090, 1030], [1140, 997], [1180, 972], [1230, 956], [1300, 950], [1363, 950], [1413, 953], [1463, 956], [1530, 964], [1570, 975], [1600, 990]]
+lower = [[1050, 1052], [1080, 1068], [1110, 1086], [1170, 1122], [1230, 1137], [1300, 1139], [1350, 1133], [1410, 1118], [1460, 1096], [1520, 1046], [1570, 1002], [1600, 992]]
+
+[hair]
+enabled = true
+material = "Claude_Hair"
+
+[skirt]
+enabled = true
+
+[overskirt]
+enabled = true
+
+[hands]
+enabled = true
+material = "Claude_Skin"
+line_material = "Claude_Skin_Line"
+scale = 1.0
+palm_plane_z = 0.8205
+
+[fixes]                                     # Tripo's weight errors on this mesh
+nape_seam = true                            # it leaked arm weights into the hair/cloth seam
+waist_z = [0.65, 0.76]                      # it gave the corset hem thigh weights
+cross_side_legs_below = 0.55                # the boots almost touch: weights bled across
+rigid_boots = true                          # smeared weights made the boot crumple
+
+[stage]
+builder = "room.py"
+world = "AIG_World"
+sun = "AIG_Sun"                             # direction kept: the face shading driver reads it
+desk = [-0.22, 0.62, -0.34, 0.22, 0.48]     # x0, x1, y0, y1, top
+sofa = [0.84, 1.96, -1.24, -0.82, 0.29]     # x0, x1, front edge, seat back, seat top

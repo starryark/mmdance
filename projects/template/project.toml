@@ -1,0 +1,53 @@
+# A new mmdance project. Every key not set here comes from mmdance/defaults.toml, which documents
+# them all. Paths are relative to this file. Run `python -m mmdance inspect character/your.blend`
+# first: it checks the rig and prints measured heights and suggested values for the sections below.
+
+[project]
+name = "MyDance"
+fps = 30                                 # MMD motions are 30 fps
+frame_start = 0
+frame_end = -1                           # -1 = the last key of the motion
+
+[paths]
+character = "character/character.blend"  # rigged character: Mixamo bone names, T-pose, Z up, facing -Y
+blend = "build/scene.blend"
+frames = "render/frames/frame_"
+video = "build/video.mp4"
+
+[motion]
+vmd = "source/motion.vmd"
+scale = 0.0                              # 0 = auto from the leg length
+
+[camera]
+vmd = "source/camera.vmd"                # "" = a static front camera
+
+[audio]
+file = "source/song.wav"                 # "" = silent video
+
+[face]
+mode = "none"                            # "atlas" for a painted face (see docs/face.md), "shapekeys"
+vmd = ""                                 # facial VMD; "" = morph keys in the motion VMD
+
+# [face.shapekeys]                       # for characters with shape keys (VRoid/VRM, PMX conversions)
+# map = { "まばたき" = "Fcl_EYE_Close", "あ" = "Fcl_MTH_A", "い" = "Fcl_MTH_I", "う" = "Fcl_MTH_U",
+#         "え" = "Fcl_MTH_E", "お" = "Fcl_MTH_O", "笑い" = "Fcl_EYE_Joy" }
+
+[hair]
+enabled = false                          # bone chains through the hair (long hair, ponytails)
+material = ""                            # the hair material
+# rows_z = [...]                         # joint heights, root -> tips: see `inspect`
+
+[skirt]
+enabled = false                          # bone chains round a skirt / dress
+# top = 0.66
+# rows_z = [...]                         # waist -> hem
+
+[overskirt]
+enabled = false                          # a second, open outer layer of the gown
+
+[hands]
+enabled = false                          # rebuild fused finger blobs (needs a hands-only material)
+material = ""
+
+[stage]
+builder = "default"                      # or "room.py": your own set (see docs/stage.md)
