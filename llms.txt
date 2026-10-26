@@ -1,0 +1,39 @@
+# mmdance
+
+> mmdance is an open-source (MIT), headless, config-driven Blender pipeline that makes a Mixamo-rigged character (Tripo, Meshy, Mixamo, AccuRig or a custom rig mapped by bone name) perform a MikuMikuDance (MMD) dance. From the character's .blend and an MMD motion package (VMD dance motion, VMD camera, facial VMD, song) it retargets the motion to the non-MMD rig, simulates and bakes skirt/overskirt/hair physics, drives facial expressions, builds a stage, renders with EEVEE and encodes a 1080p video with the music.
+
+Key facts:
+- Input: a Blender file with a Mixamo-style humanoid rig (T-pose, Z up, facing -Y, metres) and VMD files. It does not import PMX/PMD models (use MMD Tools or SekaiBlender for those).
+- Retargeting: MMD Tools evaluates the VMD on a proxy MMD skeleton built at the rig's joints; world-space rotations are transferred relative to MMD's A-pose (arms 37° down); legs use an analytic two-bone IK to MMD's 足ＩＫ / つま先ＩＫ targets.
+- Physics: bone chains laid through the mesh, a numpy position-based solver (jointed chains with angular limits like MMD rigid-body skirts / DynamicBone, capsule and box colliders, inelastic contacts), baked to keyframes.
+- Face: VMD morphs → shape keys, or painted-face expression atlases (Live2D-style lash slide) for image-to-3D characters.
+- Repairs for auto-rigged meshes: rebuilt hands from finger bones, hair/cloth seam rip, rigid boot weights, cross-side leg weights.
+- One project = one project.toml merged over mmdance/defaults.toml; CLI `python -m mmdance new|inspect|vmd|build|stills|render|encode|qa`.
+- Requirements: Blender 5.2+, MMD Tools extension, Python 3.11+ with numpy/scipy/opencv-python/scikit-image/pillow/matplotlib, ffmpeg. Tested on Windows 11 with one character; no assets are distributed.
+
+## Docs
+- [README](https://raw.githubusercontent.com/starryark/mmdance/main/README.md): overview, requirements, quick start, FAQ, related work
+- [New character walkthrough](https://raw.githubusercontent.com/starryark/mmdance/main/docs/new-character.md): preparing a character, inspecting it, writing project.toml, tuning physics, rendering
+- [How it works](https://raw.githubusercontent.com/starryark/mmdance/main/docs/how-it-works.md): caching, retargeting method, chain layout and weights, the physics solver, facial animation, stage and render
+- [All config keys](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/defaults.toml): every setting with its default and meaning
+- [Agent guide](https://raw.githubusercontent.com/starryark/mmdance/main/AGENTS.md): commands, tests, conventions and the regression standard for coding agents
+
+## Code
+- [build.py](https://raw.githubusercontent.com/starryark/mmdance/main/build.py): Blender entry point running the stages motion → camera → rig → physics → face → stage
+- [mmdance/motion.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/motion.py): VMD → Mixamo retargeting with proxy skeleton and leg IK
+- [mmdance/rig.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/rig.py): skirt/overskirt/hair bone chains, lattice skin weights, weight repairs
+- [mmdance/solver.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/solver.py): position-based cloth/hair solver (pure numpy)
+- [mmdance/physics.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/physics.py): colliders, simulation driver, baking to bones
+- [mmdance/face.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/face.py): VMD morphs → shape keys or expression-atlas shader
+- [mmdance/face_atlas.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/face_atlas.py): builds blink/smile/mouth tiles from a painted face texture
+- [mmdance/hand_sdf.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/hand_sdf.py): hands from finger bones (implicit surface, marching cubes)
+- [mmdance/camera.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/camera.py): MMD camera import, custom shots, follow camera
+- [mmdance/vmd.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/vmd.py): minimal VMD parser
+
+## Examples
+- [projects/claude_chika](https://raw.githubusercontent.com/starryark/mmdance/main/projects/claude_chika/README.md): the full production the pipeline was built for (a Tripo character in a layered ball gown dancing a 94 s MMD motion), its config and limits
+- [projects/template/project.toml](https://raw.githubusercontent.com/starryark/mmdance/main/projects/template/project.toml): starting config for a new project
+
+## Optional
+- [Repository](https://github.com/starryark/mmdance)
+- [MMD Tools](https://github.com/MMD-Blender/blender_mmd_tools): the VMD importer mmdance uses

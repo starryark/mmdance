@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use mmdance, please cite it as below."
+title: "mmdance: MMD dances on any Mixamo-rigged Blender character"
+abstract: >-
+  A headless, config-driven Blender pipeline that retargets MikuMikuDance (MMD) VMD dance motion,
+  camera and facial tracks onto Mixamo-rigged characters (Tripo, Meshy, Mixamo, AccuRig or custom
+  rigs), simulates and bakes skirt and hair physics, animates faces through shape keys or
+  painted-face expression atlases, builds a stage, renders with EEVEE and encodes the video with
+  the song.
+type: software
+authors:
+  - family-names: Liu
+    given-names: Yangyi
+repository-code: "https://github.com/starryark/mmdance"
+url: "https://starryark.github.io/mmdance/"
+license: MIT
+version: 0.1.0
+date-released: "2026-10-26"
+keywords:
+  - MMD
+  - MikuMikuDance
+  - VMD
+  - Blender
+  - Mixamo
+  - motion retargeting
+  - character animation
+  - cloth simulation
+  - facial animation
+  - Tripo
+  - Meshy

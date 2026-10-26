@@ -141,5 +141,12 @@ class TestSolver(unittest.TestCase):
         self.assertGreaterEqual(L.x[:, 2].min(), L.radius.min() - 1e-9)
 
 
+class TestRepo(unittest.TestCase):
+    def test_llms_txt_copies_match(self):
+        """llms.txt is served from the repo root and from the docs site; keep the copies identical."""
+        with open(os.path.join(ROOT, 'llms.txt'), encoding='utf-8') as a, open(os.path.join(ROOT, 'docs', 'llms.txt'), encoding='utf-8') as b:
+            self.assertEqual(a.read(), b.read())
+
+
 if __name__ == '__main__':
     unittest.main()

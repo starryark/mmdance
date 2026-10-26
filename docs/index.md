@@ -1,0 +1,73 @@
+---
+title: "mmdance: MMD dances on any Mixamo-rigged Blender character"
+description: "Open-source Blender pipeline that retargets MikuMikuDance (VMD) dance motion, camera and facial tracks onto Tripo, Meshy or Mixamo characters, with skirt and hair physics, render and video."
+---
+
+**mmdance** makes a Mixamo-rigged character perform a **MikuMikuDance (MMD)** dance in
+**Blender**. It works with characters from Tripo, Meshy, Mixamo or AccuRig, or your own rig mapped by
+bone name. You give it the character's `.blend` and an MMD motion package: the VMD dance, the VMD
+camera, the facial VMD and the song. It retargets the motion to your rig, simulates the skirt and
+hair, animates the face, and renders a finished video with the original camera and music. It runs
+headless, and everything is set in one config file. Code:
+**[github.com/starryark/mmdance](https://github.com/starryark/mmdance)** (MIT).
+
+## What it does
+- **VMD → Mixamo retargeting.** MMD Tools evaluates the VMD on a proxy MMD skeleton built at your
+  rig's joints. The motion is transferred in world space relative to MMD's A-pose, twist bones
+  are shared between upper arm and forearm, and the legs are solved with a two-bone IK to MMD's
+  foot targets.
+- **The MMD camera**, plus custom shots where the original camera doesn't fit your model.
+- **Skirt, layered gown and long-hair physics.** Bone chains are laid through the mesh and
+  simulated with a position-based solver: jointed chains with angular limits, as in MMD
+  rigid-body skirts and DynamicBone, with body capsule colliders and furniture boxes. The result
+  is baked to keyframes.
+- **Facial animation** from the VMD morphs, on shape keys or on *painted* faces through expression
+  atlases made from the texture.
+- **Repairs for auto-rigged meshes:**
+  - hands rebuilt from the finger bones;
+  - hair ripped free of the clothing;
+  - rigid boot weights;
+  - cross-side leg weights cleaned up.
+- **Stage, EEVEE render** (resumable, parallel) and **video encoding** with the song.
+
+## Quick start
+```
+python -m mmdance new projects/my_dance
+python -m mmdance inspect projects/my_dance/character/character.blend
+python -m mmdance build  projects/my_dance/project.toml
+python -m mmdance render projects/my_dance/project.toml --jobs 2
+python -m mmdance encode projects/my_dance/project.toml
+```
+Requirements:
+- Blender 5.2+ with the MMD Tools extension;
+- Python 3.11+ with numpy, scipy, opencv-python, scikit-image, pillow and matplotlib;
+- ffmpeg.
+
+## Documentation
+- [Walkthrough: a new character or dance](new-character.html)
+- [How it works: retargeting, physics, face, render](how-it-works.html)
+- [Every config key, with defaults](https://github.com/starryark/mmdance/blob/main/mmdance/defaults.toml)
+- [The full example project](https://github.com/starryark/mmdance/tree/main/projects/claude_chika)
+- [FAQ](https://github.com/starryark/mmdance#faq)
+- [llms.txt](llms.txt), a documentation index for LLMs and AI agents
+
+## Common questions
+**Can a VMD motion drive a non-MMD model, without converting it to PMX?**
+Yes. That is the core of mmdance: the motion is evaluated on a proxy MMD skeleton and transferred
+to your Mixamo-named bones. Rigs with other bone names are mapped in `[bones.map]`.
+
+**Does it import PMX or PMD models?**
+No. For native MMD models use [MMD Tools](https://github.com/MMD-Blender/blender_mmd_tools) or
+[SekaiBlender](https://github.com/ShiJieWorld/SekaiBlender).
+
+**How do I add skirt or hair physics to a Tripo or Meshy character for an MMD dance?**
+Enable `[skirt]`, `[overskirt]` or `[hair]` in `project.toml` and set the joint heights, which
+`inspect` suggests. The chains are simulated and baked; see [How it works](how-it-works.html#physics).
+
+**How do I get blinks and lip sync from the facial VMD?**
+Map the VMD morphs (まばたき, あ, い, う, え, お, ...) to shape keys with `face.mode = "shapekeys"`,
+or use `face.mode = "atlas"` for a painted face texture.
+
+**Status.** Built for, and verified against, one 94 s production with a Tripo-generated character,
+which it reproduces exactly. It has not yet been run on a second character. Tested on Windows 11
+with Blender 5.2. No characters, motions or music are distributed.
