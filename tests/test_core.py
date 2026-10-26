@@ -57,10 +57,12 @@ class TestConfig(unittest.TestCase):
         self.assertIsNone(cfg.role('Skirt_00_0'))
 
     def test_local_override(self):
+        elsewhere = os.path.join(tempfile.mkdtemp(), 'cache')          # an absolute path on any OS
         with open(os.path.join(self.dir, 'project.local.toml'), 'w') as f:
-            f.write('[paths]\ncache = "D:/elsewhere"\n')
+            f.write('[paths]\ncache = "%s"\n' % elsewhere.replace(os.sep, '/'))
         cfg = config.load(self.toml)
-        self.assertEqual(cfg.path('paths.cache'), os.path.normpath('D:/elsewhere'))
+        self.assertEqual(cfg.path('paths.cache'), os.path.normpath(elsewhere))
+        self.assertEqual(cfg.project.name, 'T')                         # the rest still comes from project.toml
 
     def test_key_changes_with_input(self):
         cfg = config.load(self.toml)
