@@ -1,7 +1,7 @@
-# GitHub Pages site for the docs folder: https://starryark.github.io/mmdance/
+# GitHub Pages site for the docs folder: https://liuyangyi.com/mmdance/ (the account's custom domain)
 title: mmdance
 description: "MMD (MikuMikuDance) dances on any Mixamo-rigged Blender character: VMD retargeting, skirt and hair physics, facial animation, render and video."
-url: https://starryark.github.io
+url: https://liuyangyi.com
 baseurl: /mmdance
 lang: en
 author: Yangyi Liu

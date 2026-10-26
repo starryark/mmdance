@@ -36,4 +36,5 @@ Key facts:
 
 ## Optional
 - [Repository](https://github.com/starryark/mmdance)
+- [Documentation site](https://liuyangyi.com/mmdance/)
 - [MMD Tools](https://github.com/MMD-Blender/blender_mmd_tools): the VMD importer mmdance uses
