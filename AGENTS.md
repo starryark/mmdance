@@ -53,4 +53,4 @@ points at them on the owner's machine. If you can't run it, say so; do not claim
 
 ## Never commit
 `.blend`, `.vmd`, `.pmx`, audio, video, images, caches, renders or `*.local.toml`. The
-`.gitignore` enforces this. Characters, MMD motions and songs belong to their authors.
+`.gitignore` enforces this; the one exception is the README and docs-site stills in `docs/media`. Characters, MMD motions and songs belong to their authors.

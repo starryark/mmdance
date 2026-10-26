@@ -1,6 +1,7 @@
 ---
 title: "mmdance: MMD dances on any Mixamo-rigged Blender character"
 description: "Open-source Blender pipeline that retargets MikuMikuDance (VMD) dance motion, camera and facial tracks onto Tripo, Meshy or Mixamo characters, with skirt and hair physics, render and video."
+image: /media/claude-chika-kick.jpg
 ---
 
 **mmdance** makes a Mixamo-rigged character perform a **MikuMikuDance (MMD)** dance in
@@ -10,6 +11,12 @@ camera, the facial VMD and the song. It retargets the motion to your rig, simula
 hair, animates the face, and renders a finished video with the original camera and music. It runs
 headless, and everything is set in one config file. Code:
 **[github.com/starryark/mmdance](https://github.com/starryark/mmdance)** (MIT).
+
+[![A Tripo-generated anime character with long orange hair dances an MMD motion in Blender, kicking one leg out while her simulated white and black ball gown flares](media/claude-chika-kick.jpg)](https://github.com/starryark/mmdance#demo)
+
+*The example production: a Tripo-generated character dances a 94 s MMD motion with the
+package's camera, facial track and song, the gown and hair simulated.
+[Watch the demo video on GitHub](https://github.com/starryark/mmdance#demo).*
 
 ## What it does
 - **VMD → Mixamo retargeting.** MMD Tools evaluates the VMD on a proxy MMD skeleton built at your

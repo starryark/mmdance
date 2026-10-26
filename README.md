@@ -11,6 +11,26 @@ You give it the character's `.blend` and an MMD motion package: the VMD dance mo
 camera, the facial VMD and the song. It builds the animated scene and renders a finished 1080p
 video, headless, from one config file.
 
+## Demo
+
+https://github.com/user-attachments/assets/e68a693f-9448-4adc-9f07-b09c7fcc77f6
+
+*[projects/claude_chika](projects/claude_chika), the production mmdance was built for: a
+Tripo-generated anime character in a layered ball gown dances akomni's MMD motion
+チカっとチカ千花っ♡ (94 s), with the package's camera, facial track and song, in a rebuilt
+student-council room. `build.py` makes the whole scene from the untouched character file: the
+retargeted dance, the simulated gown and hair, the face and the stage. Shown here as a 10 MB 720p
+copy of the 1080p render.*
+
+| | | |
+| --- | --- | --- |
+| ![MMD dance in Blender: a Tripo-generated anime character with long orange hair lies across a desk in a red-curtained room, her white and black layered ball gown draped over the desk edge](docs/media/claude-chika-desk.jpg) | ![The Mixamo-rigged character kicks one leg out and points mid-dance while the simulated skirt and overskirt flare out behind the turn](docs/media/claude-chika-kick.jpg) | ![Near the end of the dance the character smiles with her eyes closed, an expression drawn by the painted-face atlas, long hair falling over the gown](docs/media/claude-chika-smile.jpg) |
+
+*The opening shot, on the desk (a cloth collider); skirt physics on a kick; a smile from the
+painted-face expression atlas.*
+
+## What it does
+
 If you have an AI-generated or auto-rigged anime character and an MMD/VMD dance you want it to
 perform, this is the pipeline for that. It retargets MMD motion to a non-MMD rig, adds skirt and
 hair physics, animates the face, and renders with the original camera and music. It handles:
@@ -43,7 +63,7 @@ results, keyed by its inputs, so a rebuild only recomputes what changed.
 
 ## Status
 This was built for one production: a Tripo-generated 1 m toon character dancing a 94 s MMD motion
-([projects/claude_chika](projects/claude_chika)). The engine (retargeting, camera, chains and
+([projects/claude_chika](projects/claude_chika), the [demo](#demo) above). The engine (retargeting, camera, chains and
 physics, face states, render, encode) is generic and config-driven, and it reproduces that
 production's output exactly: every cache, the face atlases and the rendered frames match. The
 generic path was also smoke-tested on the same character: the default stage, a follow camera,
@@ -91,10 +111,13 @@ committed. See [docs/new-character.md](docs/new-character.md) for the walkthroug
 | `tests/` | Unit tests that run in system Python (`python -m unittest`) |
 
 ## Assets and licence
-The code is MIT licensed. **No characters, motions, music or renders are included or redistributed.**
-MMD motions and songs carry their authors' terms. Read and follow them, credit the authors, and
-check whether derivative videos are allowed before you publish one. The `.gitignore` keeps `.blend`,
-`.vmd`, audio, video, images and caches out of the repository.
+The code is MIT licensed. **No characters, motions or music are included or redistributed.** The
+demo video and the stills in `docs/media` are renders of the example project, shown to illustrate
+the pipeline; the motion and song in them belong to their authors (see the
+[credits](projects/claude_chika#credits)). MMD motions and songs carry their authors' terms. Read
+and follow them, credit the authors, and check whether derivative videos are allowed before you
+publish one. The `.gitignore` keeps `.blend`, `.vmd`, audio, video, images (apart from the docs
+stills) and caches out of the repository.
 
 ## FAQ
 

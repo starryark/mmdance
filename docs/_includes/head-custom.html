@@ -1,0 +1,19 @@
+<!-- Overrides the Cayman theme's empty hook: structured data for the home page. -->
+{% if page.url == "/" %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "mmdance",
+  "description": {{ page.description | jsonify }},
+  "codeRepository": "https://github.com/starryark/mmdance",
+  "url": {{ "/" | absolute_url | jsonify }},
+  "image": {{ page.image | absolute_url | jsonify }},
+  "license": "https://opensource.org/licenses/MIT",
+  "programmingLanguage": "Python",
+  "runtimePlatform": "Blender 5.2+",
+  "author": {"@type": "Person", "name": "Yangyi Liu"},
+  "keywords": "MMD, MikuMikuDance, VMD, Blender, Mixamo, motion retargeting, skirt physics, hair physics, facial animation, Tripo, Meshy"
+}
+</script>
+{% endif %}

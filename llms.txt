@@ -31,6 +31,7 @@ Key facts:
 - [mmdance/vmd.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/vmd.py): minimal VMD parser
 
 ## Examples
+- [Demo video](https://github.com/starryark/mmdance#demo): the 94 s render of the example production (Tripo character, layered ball gown, MMD camera and song), with stills of the desk opening, skirt physics on a kick and a painted-face smile ([1](https://liuyangyi.com/mmdance/media/claude-chika-desk.jpg), [2](https://liuyangyi.com/mmdance/media/claude-chika-kick.jpg), [3](https://liuyangyi.com/mmdance/media/claude-chika-smile.jpg))
 - [projects/claude_chika](https://raw.githubusercontent.com/starryark/mmdance/main/projects/claude_chika/README.md): the full production the pipeline was built for (a Tripo character in a layered ball gown dancing a 94 s MMD motion), its config and limits
 - [projects/template/project.toml](https://raw.githubusercontent.com/starryark/mmdance/main/projects/template/project.toml): starting config for a new project
 
