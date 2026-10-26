@@ -96,7 +96,7 @@ python -m mmdance qa     projects/<name>/project.toml 1540 1600      # a spin: h
 - **Physics:** every collider radius is printed, measured or clamped.
 
 Simulation first: `--until 300` simulates only the first 300 frames, so a parameter change can be
-judged in a minute. A full simulation of a 90 s dance takes about 15 minutes, rendering about
+judged in a minute. A full simulation of a 90 s dance takes 15–20 minutes, rendering about
 2 hours at 1080p.
 
 Things to check in stills:
