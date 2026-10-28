@@ -16,14 +16,19 @@ Everything slow is cached in `paths.cache`. Each file name carries a hash of its
 | file | contents | key |
 |---|---|---|
 | `proxy_<key>.npz` | the VMD evaluated on the proxy skeleton (world rotations and positions per frame) | VMD content, scale, arm angle, frame range, proxy layout |
-| `body_track_<key>.npz` | world matrices of the 24 tracked body bones per frame | the above plus the rest pose |
-| `hands_<key>.npz` | the generated hand meshes with part labels | hand bones and `[hands]` |
-| `sim_<key>.npz` | particle positions of every lattice per frame | body track, lattice, `[physics]`, colliders |
+| `body_track_<key>.npz` | world matrices of the 24 tracked body bones per frame | the above plus the rest pose, and `motion.thumb_rest` / `hands_apart` when set |
+| `hands_<key>.npz` | the generated hand meshes with part labels | hand bones and `[hands]`, except the keys that only change how the hands are merged (`select`, `wrist_margin`, `skin_uv`) or the bones (`phalanges`, `spread`: the bones are in the key) |
+| `sim_<key>.npz` | particle positions of every lattice per frame | body track, lattice, `[physics]` and `[tail]` (without `smooth_frames` and `tail.sway`, applied after the simulation), colliders |
 | `lattice.npz` | the chain layout from the rig stage | (rewritten every build) |
 
 When you edit the config, the stages that depend on the change recompute on the next build and the
-rest are reused. `--resim` and `--resample` force a recompute. The face atlases in
-`paths.textures` record their key in `face_atlas.json` the same way.
+rest are reused. `--resim` and `--resample` force a recompute. A run with `--until N` never writes
+the simulation cache, so a partial run cannot pass for the full one. The face atlases in
+`paths.textures` record their key in `face_atlas.json` the same way: the painting's content and
+`[face.atlas]`.
+
+Options added after a cache was made enter its key only when they are set (`thumb_rest`,
+`hands_apart`, `[tail]`, a non-default `face.atlas.lids`), so existing projects keep their caches.
 
 ## Motion
 MMD motions rotate bones relative to MMD's own rest pose: an A-pose with the arms about 37° below
@@ -37,6 +42,18 @@ same A-pose:
 - **Legs** are solved analytically. The thigh and shin are placed to reach the proxy's foot-IK
   target (足ＩＫ), and the knee bends toward the proxy thigh's forward direction. The foot is then
   aimed along the IK bone's toe direction (つま先ＩＫ).
+- **Thumbs** (`motion.thumb_rest`). MMD thumb keys are authored for a standard MMD hand's rest
+  thumb. An auto-rigged thumb often rests flatter, along the index finger, and then lands wrong in
+  a fist or a pointing hand. Given that rest direction in the hand's own frame, every thumb
+  thumb bone first turns from the rig's rest thumb to that direction, then takes the motion's
+  rotation.
+- **Hands that should touch** (`motion.hands_apart`). Hands larger than the motion's model cross
+  where the original's fingertips meet, as in a closing hand heart. Over a frame range, with
+  smooth ramps, the wrists are spread sideways by a two-bone arm IK.
+- **Finger joints** (`hands.phalanges`, `hands.spread`, with `[hands]` on). Before anything is
+  retargeted, each finger's joints are moved to drawn-hand proportions along the old finger,
+  tips kept, and the knuckle row is widened. The proxy, the MMD finger keys and the rebuilt hands
+  then all use the new joints.
 
 `motion.scale` converts MMD units to metres. Auto mode takes your leg length over 9.42, a standard
 MMD leg in MMD units. When the motion asks a leg to reach further than its length, the reach is
@@ -57,11 +74,30 @@ foot a little.
   the outer layer. A majority vote over the mesh cleans up the labels, and a soft band blends
   weights across the folds where the layers meet. The outer layer gets its own panel chains,
   ordered round the back from the front opening.
+  `phi_range`/`zbottom` limit the outer layer to an arc and height (an apron).
+- **Tail** (`[tail]`). The tail's island is found from a seed point and taken out of the skirt.
+  Surface (Dijkstra) distance from the end nearest the hips sets the joints at equal steps along
+  it, at the centroid of each distance band; two columns sit either side along the normal of the
+  tail's plane, so the bones carry its twist. Weights blend along the tail and across the columns.
 - **Weights** come from each vertex's (angle, height) position on the lattice: bilinear across
   columns and rows. Above the first joint they blend into the root bone. Only the chain vertices
   are re-weighted; the body's weights are left alone, except for the opt-in `[fixes]`.
+- **Hair locks** (`hair.mode = "locks"`). Below `split_z` the hair mesh's connected pieces are
+  its locks; each gets a chain (wide ones several), joints every `joint_step` at the centroid of
+  the lock's vertices. Chains of different locks are not linked by ring constraints; their bones
+  take their side axis from the head. Weights follow the vertex's own lock, smoothed over the
+  surface.
 - **Hair rip.** Edges where hair faces meet cloth faces below `hair.rip_below` are split, so the
   hair can swing without dragging the dress along.
+- **Hands** (`[hands]`, `hand_sdf.py`). Fused finger blobs are replaced by a hand built from the
+  finger bones: an implicit surface of a palm, a thumb mound and separate tapered fingers that
+  join the palm but never each other, meshed with marching cubes. Each vertex knows its part and
+  its place along it, which gives joint-blended weights. The old hands are every face of the
+  hands' material, or (`select = "wrist"`, for a material shared with the neck or arms) only the
+  faces past the wrists. Then `skin_uv` points the new hands at one skin texel of the shared
+  texture.
+- **Vertices without weights** (`fixes.unweighted`, on by default) take the weights of the
+  nearest weighted vertex. Otherwise they stay at the rest pose and streak across the frame.
 
 ## Physics
 `solver.py` is a position-based (PBD) solver in numpy. The particles are the chain joints, and
@@ -92,6 +128,8 @@ with body bones interpolated in between. Each substep runs:
     surface is reliable, it always goes to the outside of the fabric (`outer_rule`).
   - The floor, and rounded box colliders for furniture.
   - Hair and panels are also kept outside the skirt surface while the body is upright.
+- **Smoothing** (`smooth_frames`, after the simulation): a Gaussian low-pass of each lattice in
+  its root bone's frame, before baking.
 - **Inelastic contacts** (`absorb`). The displacement a collision causes is removed from the
   velocity, so fabric pushed by a knee doesn't bounce.
 
@@ -121,13 +159,50 @@ hem trails the hips.
   face material samples the atlases through UV maths driven by integer object properties
   (`face_eyeL`, `face_eyeR`, `face_mouth`). Mouth states are held at least `mouth_min_hold`
   frames, so the lips never flicker.
+- **A face rebuilt as geometry** (project code, `projects/claude_chika_v3/face_rebuild.py`). The
+  atlas suits a painted face on a smooth head. On a sculpted one the outline shell and the shading
+  show the sculpt under the drawing. The rebuild works in the painting's front projection, so every
+  new part keeps the painting's UVs:
+  - The face polygons and the pieces inside their outline are replaced by a smooth surface: the
+    old depth blurred, a little of the nose kept, and the old surface at the outline so it meets
+    the head. Its shading normals come from an ellipsoid round the head, and it has no outline
+    weight inside.
+  - The mouth is an opening with a lip-coloured strip round the rim and rings round it. Behind it
+    sit the inside of the mouth, the upper teeth and the tongue. Shape keys for あ い う え お, ワ and
+    にやり move the rim, the rings (more below, as a jaw would), the teeth band and the tongue.
+  - Each eye is three layers over the surface: the eyeball, an upper lid carrying the lash band and
+    a lower lid carrying the lid line. Closing brings the lash band down over the lower lid. 笑い
+    lowers it and raises the lower lid behind it into ^^.
+  - The facial track keys the shape keys directly (`face.mode = "none"`).
 
 ## Stage and render
 `stage.builder = "default"` gives a floor disc under the world colour. A project builder is a
 Python file defining `build(collection, cfg)`, and optionally `colliders(cfg)` to return furniture
-boxes for the physics; see `projects/claude_chika/room.py`.
+boxes for the physics and `finish(collection, cfg)`, called last for the project's own lighting and
+look; see `projects/claude_chika/room.py` and `projects/deepseek_chika/room.py`.
 
-The render is EEVEE with ray tracing, a fog-glow compositor pass and PNG output.
+`finish()` runs after the physics bake, so it can also run project code on the built character
+(the face rebuild, the sleeve simulation, the wing beat) and replace the camera.
+`projects/dreamwings/lobby.py` shows the parts a set from another file needs:
+- **The set is appended**, not modelled: the `.blend`'s collections hang on one empty, which
+  scales them around the dance. A set modelled at real size is shrunk by 1/1.6 so that the 1 m
+  characters read as 1.6 m. Point, spot and area lights then lose power by the scale squared,
+  and their soft shadow size by the scale, so the set is lit as before. Sun and world are
+  unchanged.
+- **The spot.** The dance is placed where the hips' path (plus the arms' reach) and the camera's
+  path stay clear of the furniture over the whole dance: every spot and turn is ranked by its
+  clearance from the set's furniture, drawn as boxes on the floor plan.
+- **A camera of its own**, keyed on every frame from a track made outside Blender, set as the
+  scene camera. The rig object can be keyed too, to turn the dancer with the camera. These keys go
+  on after the physics, so the simulation does not feel that turn; keep it slow.
+- **The character's key light is linked to the character only.** On a toon character the key also
+  drives the face shading (a driver reads the sun's rotation), so it follows the camera and keeps
+  `rotation_euler` y at 0. The set keeps its own lights.
+
+The render is EEVEE with ray tracing, a fog-glow compositor pass and PNG output. The view
+transform is `Standard` (`render.view_transform`), so toon colours render as painted. AgX,
+Blender's default, washes them out. A set lit for AgX, with bright windows and lamps, can use
+`Khronos PBR Neutral`, which keeps the painted colours and still rolls off the highlights.
 `use_overwrite = False` and placeholders are on, so several Blender processes can share the frame
 range and an interrupted render resumes. `encode` muxes the frames with the song. If the song is
 longer, it holds the last frame, then fades picture and sound out together.

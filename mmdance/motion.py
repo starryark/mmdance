@@ -14,7 +14,7 @@ import bpy
 import numpy as np
 from mathutils import Matrix, Quaternion, Vector
 
-from . import config, vmd
+from . import config, hands, vmd
 from .util import hide_others, mmd_importer, new_action, nframes, put_curve, rig_and_body
 
 FWD = Vector((0, -1, 0))    # the model faces -Y
@@ -175,6 +175,39 @@ def half_twist(Wp, Wc):
     return Quaternion().slerp(q, 0.5).to_matrix()
 
 
+def thumb_correction(cfg, ref):
+    """Per side, the world rotation (in the A-pose) that turns the rig's rest thumb to
+    `motion.thumb_rest`: the thumb direction of a standard MMD hand in the hand's own frame
+    (along the middle finger, across toward the index, toward the palm; left hand, mirrored for
+    the right). MMD thumb keys are authored for that rest; on a flatter rest thumb they land wrong."""
+    out = {}
+    if not cfg.motion.thumb_rest:
+        return out
+    B = cfg.bone
+    for side, sgn in (('Left', 1), ('Right', -1)):
+        def h(n):
+            return ref[B(side + n)].translation
+        along = (h('HandMiddle1') - h('Hand')).normalized()
+        across = h('HandIndex1') - h('HandPinky1')
+        across = (across - along * across.dot(along)).normalized()
+        palm = along.cross(across) * sgn
+        a, c, p = cfg.motion.thumb_rest
+        target = (along * a + across * c + palm * p).normalized()
+        cur = (h('HandThumb3') - h('HandThumb1')).normalized()
+        out[side] = cur.rotation_difference(target).to_matrix()
+    return out
+
+
+def apart_weight(cfg, frame):
+    """0..1: how much `motion.hands_apart` spreads the wrists at this frame (smooth ramps)."""
+    w = 0.0
+    for a in cfg.motion.hands_apart:
+        r = max(a['ramp'], 1)
+        t = min(max((frame - a['start']) / r, 0.0), 1.0) * min(max((a['end'] - frame) / r, 0.0), 1.0)
+        w = max(w, t * t * (3 - 2 * t) * a['gap'])
+    return w
+
+
 def retarget(cfg, rig, M, ref, names, W, POS):
     bones = rig.data.bones
     idx = {n: i for i, n in enumerate(names)}
@@ -184,6 +217,7 @@ def retarget(cfg, rig, M, ref, names, W, POS):
     def depth(b):
         return 0 if b.parent is None else 1 + depth(b.parent)
     order = sorted((b.name for b in bones), key=lambda n: depth(bones[n]))
+    thumb_fix = thumb_correction(cfg, ref)
 
     direct = {'Hips': '下半身', 'Spine': '上半身', 'Spine2': '上半身2', 'Neck': '首', 'Head': '頭'}
     for jp, en in (('左', 'Left'), ('右', 'Right')):
@@ -275,6 +309,39 @@ def retarget(cfg, rig, M, ref, names, W, POS):
                     t_shin = g['Rshin'] @ g['toe0']
                     t_ik = Wf[jp + '足ＩＫ'] @ g['toe0']
                     wd = t_shin.rotation_difference(t_ik).to_matrix() @ g['Rshin']
+            if thumb_fix and 'HandThumb' in short:
+                wd = wd @ thumb_fix['Left' if short.startswith('Left') else 'Right']
+            if short in ('LeftHand', 'RightHand') and cfg.motion.hands_apart:
+                gap = apart_weight(cfg, cfg.project.frame_start + i)
+                if gap > 0:              # spread the wrists (arm IK), e.g. so a hand heart's fingertips meet
+                    side = short[:-4]
+                    arm, fore = B(side + 'Arm'), B(side + 'ForeArm')
+                    lateral = Wf['下半身'] @ Vector((1 if side == 'Left' else -1, 0, 0))
+                    S, E = D[arm].translation, D[fore].translation
+                    Wr = head
+                    T = Wr + lateral * (gap / 2)
+                    L1, L2 = (E - S).length, (Wr - E).length
+                    d = T - S
+                    dist = min(d.length, (L1 + L2) * 0.9995)
+                    dn = d.normalized()
+                    pole = (E - S) - dn * (E - S).dot(dn)
+                    pn = pole.normalized()
+                    a = (L1 ** 2 - L2 ** 2 + dist ** 2) / (2 * dist)
+                    E2 = S + dn * a + pn * math.sqrt(max(L1 ** 2 - a * a, 0.0))
+                    T = S + dn * dist
+                    R1 = (E - S).rotation_difference(E2 - S).to_matrix()
+                    R2 = (R1 @ (Wr - E)).rotation_difference(T - E2).to_matrix()
+                    for bn, R, hd in ((arm, R1, S), (fore, R2 @ R1, E2)):
+                        Wd[bn] = R @ Wd[bn]
+                        D[bn] = Matrix.Translation(hd) @ (R @ D[bn].to_3x3()).to_4x4()
+                        pn_ = bones[bn].parent.name
+                        bm = M[bn].inverted() @ M[pn_] @ D[pn_].inverted() @ D[bn]
+                        q = bm.to_quaternion()
+                        if i and np.dot(out_q[bn][i - 1], q) < 0:
+                            q = -q
+                        out_q[bn][i] = q
+                        out_l[bn][i] = bm.translation
+                    head = T
             Wd[n] = wd
             D[n] = Matrix.Translation(head) @ (wd @ ref3[n]).to_4x4()
             # local pose (basis) relative to the T-pose rest
@@ -316,6 +383,8 @@ def run(cfg):
     bpy.ops.object.mode_set(mode='EDIT')
     rig.data.edit_bones[cfg.bone('Spine')].use_connect = False
     bpy.ops.object.mode_set(mode='OBJECT')
+    if cfg.hands.enabled:
+        hands.finger_bones(cfg, rig)
     M, ref = ref_pose(cfg, rig)
     spec = proxy_spec(cfg, ref)
     key = cfg.key(config.file_key(cfg.path('motion.vmd')), cfg.motion.scale, cfg.motion.arm_angle,

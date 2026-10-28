@@ -35,7 +35,7 @@ def main(cfg_path, a=None, b=None):
     tr = np.load(track_path)
     T = tr['mats']
     print('simulation', os.path.basename(sim_path), 'body track', os.path.basename(track_path))
-    for key, root in (('sk', 'Hips'), ('ov', 'Hips'), ('hr', 'Head')):
+    for key, root in (('sk', 'Hips'), ('ov', 'Hips'), ('hr', 'Head'), ('tl', 'Hips')):
         if key not in S:
             continue
         X = S[key]

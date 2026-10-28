@@ -29,6 +29,7 @@
 
 # generated per project
 cache/
+*.log
 render/
 build/
 source/

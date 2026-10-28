@@ -68,8 +68,10 @@ def lerp_mat4(m0, m1, a):
 class Lattice:
     """Particles of one bone lattice. pts_rest: (ncol, nrow, 3) with per-column lengths."""
 
-    def __init__(self, name, pts_rest, lens, root_rest, wrap, params, radius):
+    def __init__(self, name, pts_rest, lens, root_rest, wrap, params, radius, breaks=()):
+        """breaks: columns c whose ring link to c + 1 is cut (separate hair locks swing on their own)."""
         self.name = name
+        self.breaks = set(int(b) for b in breaks)
         self.ncol = pts_rest.shape[0]
         self.lens = np.asarray(lens)
         self.wrap = wrap
@@ -94,7 +96,7 @@ class Lattice:
                 ch.append((self.id_of[(c, k)], self.id_of[(c, k + 1)]))
             for k in range(1, self.lens[c]):
                 c2 = (c + 1) % self.ncol if wrap else c + 1
-                if c2 < self.ncol and (c2, k) in self.id_of and c2 != c:
+                if c2 < self.ncol and (c2, k) in self.id_of and c2 != c and c not in self.breaks:
                     ring.append((self.id_of[(c, k)], self.id_of[(c2, k)]))
         # bending: skip-one pairs along chains and around rings
         bch, brg = [], []
@@ -103,7 +105,8 @@ class Lattice:
                 bch.append((self.id_of[(c, k - 1)], self.id_of[(c, k + 1)]))
             for k in range(1, self.lens[c]):
                 cm, cp = (c - 1) % self.ncol if wrap else c - 1, (c + 1) % self.ncol if wrap else c + 1
-                if 0 <= cm < self.ncol and 0 <= cp < self.ncol and (cm, k) in self.id_of and (cp, k) in self.id_of and cm != cp:
+                if 0 <= cm < self.ncol and 0 <= cp < self.ncol and (cm, k) in self.id_of and (cp, k) in self.id_of \
+                        and cm != cp and cm not in self.breaks and c not in self.breaks:
                     brg.append((self.id_of[(cm, k)], self.id_of[(cp, k)]))
         self.bend_chain = np.array(bch) if bch else np.zeros((0, 2), int)
         self.bend_ring = np.array(brg) if brg else np.zeros((0, 2), int)

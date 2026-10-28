@@ -76,6 +76,22 @@ def rip_hair(cfg, ob):
     print(f'[rig] ripped {len(edges)} hair/cloth seam edges')
 
 
+def islands(me):
+    """Connected-component id per vertex."""
+    parent = np.arange(len(me.vertices))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+    for e in me.edges:
+        a, b = find(e.vertices[0]), find(e.vertices[1])
+        if a != b:
+            parent[a] = b
+    return np.array([find(i) for i in range(len(me.vertices))])
+
+
 def classify(cfg, ob):
     """Vertex masks: hair, skirt, legs (their own mesh island), hair/cloth seam."""
     me = ob.data
@@ -92,19 +108,7 @@ def classify(cfg, ob):
             other_f[list(p.vertices)] = True
         if p.material_index in sk_mats:
             skirt_mat[list(p.vertices)] = True
-    # connected components (legs are often a separate island under the skirt)
-    parent = np.arange(n)
-
-    def find(a):
-        while parent[a] != a:
-            parent[a] = parent[parent[a]]
-            a = parent[a]
-        return a
-    for e in me.edges:
-        a, b = find(e.vertices[0]), find(e.vertices[1])
-        if a != b:
-            parent[a] = b
-    comp = np.array([find(i) for i in range(n)])
+    comp = islands(me)                     # legs are often a separate island under the skirt
     co = mesh_arrays(me)
     ids, counts = np.unique(comp, return_counts=True)
     legs = None
@@ -113,14 +117,56 @@ def classify(cfg, ob):
         if co[m, 2].min() < 0.01 and co[m, 2].max() > cfg.legs.min_top and np.abs(co[m, 0]).max() < cfg.legs.max_abs_x:
             legs = c
     hair = hair_f & ~other_f
-    skirt = other_f & ~hair_f & (co[:, 2] < cfg.skirt.top) & (comp != legs)
+    if cfg.hair.adopt_head_islands:
+        hair |= head_islands(cfg, ob, comp, hair_f)
+    leg_mask = comp == legs
+    if cfg.legs.attach > 0 and leg_mask.any():
+        leg_mask |= attached_islands(co, comp, leg_mask, cfg.legs.attach)
+    skirt = other_f & ~hair_f & ~hair & (co[:, 2] < cfg.skirt.top) & ~leg_mask
     if sk_mats:
         skirt &= skirt_mat
-    return co, hair, skirt, comp == legs, hair_f & other_f
+    return co, hair, skirt, leg_mask, hair_f & other_f
 
 
-def column_points(co, sel, phis, rows_z, phi_fn, axis, mode):
-    """Chain joint positions for each (column, row) from the vertices in each bin."""
+def attached_islands(co, comp, legs, dist):
+    """Small islands lying on the legs (shoe buckles, straps): every vertex within `dist` of them."""
+    from mathutils.kdtree import KDTree
+    lv = np.nonzero(legs)[0]
+    kd = KDTree(len(lv))
+    for i in lv:
+        kd.insert(co[i], int(i))
+    kd.balance()
+    out = np.zeros(len(co), bool)
+    for c in np.unique(comp[~legs]):
+        m = np.nonzero(comp == c)[0]
+        if all(kd.find(co[i])[2] < dist for i in m):
+            out[m] = True
+    print(f'[rig] {len(np.unique(comp[out]))} small islands on the legs ({out.sum()} vertices) join them')
+    return out
+
+
+def head_islands(cfg, ob, comp, hair_f):
+    """Curls an auto-rigger gave another material: islands with no hair faces whose vertices
+    mostly follow the head bone, below the top of the hair chains. They join the hair."""
+    names = {g.index: g.name for g in ob.vertex_groups}
+    skip = cfg.character.outline_group
+    head = np.array([max(((g.weight, names[g.group]) for g in v.groups if names[g.group] != skip),
+                         default=(0, ''))[1] == cfg.bone('Head') for v in ob.data.vertices])
+    z = mesh_arrays(ob.data)[:, 2]
+    out = np.zeros(len(comp), bool)
+    for c in np.unique(comp[head & (z < cfg.hair.rows_z[0])]):
+        m = comp == c
+        if not (m & hair_f).any() and head[m].mean() > 0.8:
+            out |= m
+    print(f'[rig] {len(np.unique(comp[out]))} head-weighted islands ({out.sum()} vertices) joined the hair')
+    return out
+
+
+def column_points(co, sel, phis, rows_z, phi_fn, axis, mode, allow_empty=False):
+    """Chain joint positions for each (column, row) from the vertices in each bin.
+
+    allow_empty: columns without any vertices stay NaN (the overskirt drops them) instead of
+    raising."""
     ph = phi_fn(co[sel, :2])
     z = co[sel, 2]
     r = np.hypot(co[sel, 0] - axis[0], co[sel, 1] - axis[1])
@@ -160,6 +206,8 @@ def column_points(co, sel, phis, rows_z, phi_fn, axis, mode):
         for k in range(len(rows_z)):
             if np.isnan(pts[c, k, 0]):
                 ks = [j for j in range(len(rows_z)) if not np.isnan(pts[c, j, 0])]
+                if not ks and allow_empty:
+                    break
                 if not ks:
                     raise RuntimeError(f'lattice column {c} found no vertices: check rows_z / axis / materials')
                 j = min(ks, key=lambda j: abs(j - k))
@@ -299,9 +347,14 @@ def overskirt_lattice(cfg, ob, co, skirt, sk_pts, sk_phis, sk_phi):
     """Panel chains for the outer gown layer, ordered round the back from the front opening."""
     ax = cfg.skirt.axis
     rows = cfg.skirt.rows_z
-    lab, soft = layers.classify_layers(ob, np.nonzero(skirt)[0], cfg.overskirt.ztop, tuple(ax))
+    allow = None
+    if cfg.overskirt.phi_range:              # only this arc may be an outer layer (an apron)
+        a0, a1 = np.radians(cfg.overskirt.phi_range)
+        allow = (sk_phi(co[:, :2]) >= a0) & (sk_phi(co[:, :2]) <= a1) & (co[:, 2] >= cfg.overskirt.zbottom)
+    lab, soft = layers.classify_layers(ob, np.nonzero(skirt)[0], cfg.overskirt.ztop, tuple(ax), allow)
     outer = skirt & (lab > 0.5)
-    ov_all, ov_thick_all, ov_cnt = column_points(co, outer, sk_phis, rows, sk_phi, ax, 'median')
+    ov_all, ov_thick_all, ov_cnt = column_points(co, outer, sk_phis, rows, sk_phi, ax, 'median',
+                                                 allow_empty=allow is not None)
     present = ov_cnt.sum(1) >= cfg.overskirt.min_vertices
     # panel rows above the overskirt (merged with the skirt at the waist) follow the skirt surface,
     # and a panel always hangs at least min_gap outside the skirt
@@ -329,6 +382,228 @@ def overskirt_lattice(cfg, ob, co, skirt, sk_pts, sk_phis, sk_phi):
     print('[rig] overskirt panel columns', cols.tolist(), 'joints', ov_lens_all[cols].tolist())
     return dict(pts=ov_all[cols], len=ov_lens_all[cols], thick=ov_thick_all[cols], cols=cols, phis=ov_phis_u,
                 gap=gap_ang, phi_fn=ov_phi, soft=soft)
+
+
+def hair_locks(cfg, ob, co, hair):
+    """Bone chains along the hair's own locks (hair.mode = "locks").
+
+    Below `split_z` the hair mesh falls apart into separate locks (its connected pieces). Each
+    lock gets its own chain; a wide lock (a sheet of fused curls) gets one chain per
+    `lock_width` degrees. Joints sit every `joint_step` down from `root_z` (pinned, riding the
+    head): at the centroid of the lock's own vertices below the split, of the hair mass over the
+    lock's arc higher up. Chains of different locks are not linked (`breaks`), so each lock
+    swings on its own, as the locks of hand-rigged models do."""
+    hc = cfg.hair
+    me = ob.data
+    E = np.array([e.vertices[:] for e in me.edges])
+    phi = np.degrees(hr_phi_fn(hc.axis)(co[:, :2]))
+    low = hair & (co[:, 2] < hc.split_z)
+    parent = np.arange(len(co))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+    for a, b in E[low[E[:, 0]] & low[E[:, 1]]]:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[ra] = rb
+    comp = np.array([find(i) for i in range(len(co))])
+    ids, counts = np.unique(comp[low], return_counts=True)
+    chains = []
+    for lk in ids[counts >= hc.min_lock]:
+        m = low & (comp == lk)
+        lo, hi = np.percentile(phi[m], 3), np.percentile(phi[m], 97)
+        k = max(1, int(np.ceil((hi - lo) / hc.lock_width)))
+        cuts = np.linspace(lo, hi, k + 1)
+        for j in range(k):
+            a = -1e9 if j == 0 else cuts[j]
+            b = 1e9 if j == k - 1 else cuts[j + 1]
+            chains.append(dict(lock=int(lk), sel=m & (phi >= a) & (phi < b), phi=0.5 * (cuts[j] + cuts[j + 1]),
+                               lo=cuts[j], hi=cuts[j + 1]))
+    chains.sort(key=lambda c: c['phi'])
+    step = hc.joint_step
+    pts, thick, lens = [], [], []
+    for ch in chains:
+        zmin = co[ch['sel'], 2].min()
+        n = min(hc.max_joints, max(3, int(np.ceil((hc.root_z - zmin) / step - 0.35)) + 1))
+        levels = hc.root_z - step * np.arange(n)
+        P, T = [], []
+        for z in levels:
+            if z >= hc.split_z:          # still in the hair mass: its middle over this lock's arc
+                m = hair & (np.abs(co[:, 2] - z) < step * 0.6) & (phi > ch['lo'] - 6) & (phi < ch['hi'] + 6)
+            else:
+                m = ch['sel'] & (np.abs(co[:, 2] - z) < step * 0.6)
+            if m.sum() < 3:
+                P.append(None)
+                T.append(0.01)
+                continue
+            P.append(co[m].mean(0))
+            T.append(float(np.median(np.linalg.norm(co[m] - co[m].mean(0), axis=1))))
+        for i, q in enumerate(P):              # gaps (a curl's turn): the nearest filled level
+            if q is None:
+                j = min((j for j in range(n) if P[j] is not None), key=lambda j: abs(j - i))
+                P[i] = P[j].copy()
+        P = np.array(P)
+        P[:, 2] = levels
+        pts.append(P)
+        thick.append(T)
+        lens.append(n)
+        ch['levels'] = levels
+    nrow = max(lens)
+    pts_a = np.array([np.vstack([p] + [p[-1:]] * (nrow - len(p))) for p in pts])
+    thick_a = np.array([t + [t[-1]] * (nrow - len(t)) for t in thick])
+    breaks = np.array([c for c in range(len(chains) - 1) if chains[c]['lock'] != chains[c + 1]['lock']], int)
+    print(f'[rig] hair locks: {int((counts >= hc.min_lock).sum())} locks, {len(chains)} chains, joints {lens}')
+    return dict(pts=pts_a, len=np.array(lens), thick=thick_a, chains=chains, comp=comp, low=low, phi=phi, breaks=breaks)
+
+
+def hair_lock_weights(cfg, ob, co, hair, hl, names, head):
+    """Each vertex follows its own lock's chain(s) (across a sheet's chains by angle), along the
+    chain by height; above the split by angle over all chains; smoothed over the mesh so the
+    locks part without seams. Hair above root_z + root_band rides the head."""
+    hc = cfg.hair
+    chains, phi = hl['chains'], hl['phi']
+    idx = np.nonzero(hair & (co[:, 2] < hc.root_z + hc.root_band))[0]
+    col0 = np.cumsum([0] + [len(n) for n in names])
+    W = np.zeros((len(idx), col0[-1]))
+    by_lock = {}
+    for c, ch in enumerate(chains):
+        by_lock.setdefault(ch['lock'], []).append(c)
+    allc = list(range(len(chains)))
+    joints = np.concatenate([hl['pts'][c, :hl['len'][c]] for c in allc])
+    joint_c = np.concatenate([[c] * hl['len'][c] for c in allc])
+
+    def between(cands, p):
+        """Bilinear by angle among candidate chains (sorted by angle)."""
+        ph = np.array([chains[c]['phi'] for c in cands])
+        if len(cands) == 1 or p <= ph[0]:
+            return [(cands[0], 1.0)]
+        if p >= ph[-1]:
+            return [(cands[-1], 1.0)]
+        j = int(np.searchsorted(ph, p)) - 1
+        t = (p - ph[j]) / max(ph[j + 1] - ph[j], 1e-6)
+        return [(cands[j], 1 - t), (cands[j + 1], t)]
+    for r, v in enumerate(idx):
+        z = co[v, 2]
+        if hl['low'][v] and hl['comp'][v] in by_lock:
+            cw = between(by_lock[hl['comp'][v]], phi[v])
+        elif hl['low'][v]:                    # a scrap too small to be a lock: the nearest chain
+            cw = [(int(joint_c[np.argmin(np.linalg.norm(joints - co[v], axis=1))]), 1.0)]
+        else:
+            cw = between(allc, phi[v])
+        for c, wc in cw:
+            lv = chains[c]['levels']
+            nseg = len(lv) - 1
+            t = float(np.interp(-z, -lv, np.arange(len(lv))))
+            if z > lv[0]:
+                t = (lv[0] - z) / (lv[0] - lv[1])
+            for k in range(nseg):
+                w = max(0.0, 1 - abs(t - (k + 0.5)))
+                if k == nseg - 1 and t > nseg - 0.5:
+                    w = 1.0
+                if k == 0 and t < 0.5:
+                    w = min(1.0, max(0.0, 0.5 + t))
+                W[r, col0[c] + k] += wc * w
+    # smooth over the hair surface, so the locks part without seams
+    pos = {int(v): r for r, v in enumerate(idx)}
+    nb = [[] for _ in idx]
+    for e in ob.data.edges:
+        a, b = e.vertices
+        if a in pos and b in pos:
+            nb[pos[a]].append(pos[b])
+            nb[pos[b]].append(pos[a])
+    for _ in range(hc.smooth):
+        W = np.array([0.5 * W[r] + 0.5 * W[nb[r]].mean(0) if nb[r] else W[r] for r in range(len(idx))])
+    groups = {}
+    flat = [n for col in names for n in col]
+    for j, gname in enumerate(flat):
+        groups[gname] = W[:, j]
+    groups[head] = np.clip(1 - W.sum(1), 0, 1)
+    tot = sum(groups.values())
+    for g in groups:
+        groups[g] = groups[g] / np.maximum(tot, 1e-6)
+    return idx, groups
+
+
+def tail_island(cfg, ob, co):
+    """Vertex mask of the tail: the mesh island nearest to `tail.seed`."""
+    comp = islands(ob.data)
+    seed = int(np.argmin(np.linalg.norm(co - np.array(cfg.tail.seed), axis=1)))
+    return comp == comp[seed]
+
+
+def geodesic(me, sel, src):
+    """Edge-path distance from the `src` vertices over the selected vertices (Dijkstra)."""
+    import heapq
+    co = mesh_arrays(me)
+    adj = {}
+    for e in me.edges:
+        a, b = e.vertices
+        if sel[a] and sel[b]:
+            w = float(np.linalg.norm(co[a] - co[b]))
+            adj.setdefault(a, []).append((b, w))
+            adj.setdefault(b, []).append((a, w))
+    dist = np.full(len(co), np.inf)
+    heap = [(0.0, int(v)) for v in src]
+    for _, v in heap:
+        dist[v] = 0.0
+    heapq.heapify(heap)
+    while heap:
+        d, v = heapq.heappop(heap)
+        if d > dist[v]:
+            continue
+        for u, w in adj.get(v, ()):
+            if d + w < dist[u]:
+                dist[u] = d + w
+                heapq.heappush(heap, (d + w, u))
+    return dist
+
+
+def tail_lattice(cfg, ob, rig, co, tail):
+    """Two side-by-side chains along the tail (two columns give the bones a stable twist).
+
+    Joints sit at equal distances from the root along the surface (the end nearest the hips),
+    at the centroid of each distance band, offset to either side along the normal of the
+    tail's plane (its axis of least spread)."""
+    hips = np.array(rig.data.bones[cfg.bone('Hips')].head_local)
+    idx = np.nonzero(tail)[0]
+    dh = np.linalg.norm(co[idx] - hips, axis=1)
+    dist = geodesic(ob.data, tail, idx[dh < dh.min() + 0.01])
+    d = dist[idx]
+    n = cfg.tail.rows
+    step = d.max() / (n - 1)
+    cen = np.zeros((n, 3))
+    thick = np.zeros(n)
+    for k in range(n):
+        m = np.abs(d - k * step) < 0.5 * step if 0 < k < n - 1 else np.abs(d - k * step) < 0.35 * step
+        p = co[idx[m]]
+        cen[k] = p.mean(0)
+        thick[k] = np.median(np.linalg.norm(p - cen[k], axis=1))
+    _, _, vt = np.linalg.svd(cen - cen.mean(0))
+    side = vt[2] * cfg.tail.width / 2
+    pts = np.stack([cen - side, cen + side])
+    print('[rig] tail: %d vertices, %.3f m long, %d joints, radius %s' % (len(idx), d.max(), n, np.round(thick, 3).tolist()))
+    return dict(pts=pts, len=np.array([n, n]), thick=np.stack([thick, thick]), t=d / step,
+                s=(co[idx] - cen[np.clip(np.round(d / step).astype(int), 0, n - 1)]) @ (vt[2] / np.linalg.norm(vt[2])),
+                idx=idx)
+
+
+def tail_weights(cfg, tl, names):
+    """Weights along the tail (bone k spans joints k..k+1) and across its two columns."""
+    t, n = tl['t'], tl['len'][0]
+    nseg = n - 1
+    roww = np.stack([np.clip(1 - np.abs(t - (k + 0.5)), 0, 1) for k in range(nseg)], 1)
+    roww[:, 0] = np.where(t < 0.5, 1.0, roww[:, 0])
+    roww[:, -1] = np.where(t > nseg - 0.5, 1.0, roww[:, -1])
+    roww /= roww.sum(1, keepdims=True)
+    a = np.clip(0.5 + tl['s'] / max(cfg.tail.width, 1e-6), 0, 1)
+    groups = {}
+    for k in range(nseg):
+        groups[names[0][k]] = roww[:, k] * (1 - a)
+        groups[names[1][k]] = roww[:, k] * a
+    return groups
 
 
 def fix_nape(cfg, ob, seam):
@@ -411,6 +686,29 @@ def fix_cross_side_legs(cfg, ob, co, hair, skirt):
     print(f'[rig] removed cross-side leg weights on {cleaned} vertices')
 
 
+def fix_unweighted(cfg, ob):
+    """Vertices with no deform weight stay behind at the rest pose (long streaks once she moves):
+    they take the weights of the nearest weighted vertex."""
+    from mathutils.kdtree import KDTree
+    skip = cfg.character.outline_group
+    names = {g.index: g.name for g in ob.vertex_groups}
+    w = [{names[g.group]: g.weight for g in v.groups if names[g.group] != skip and g.weight > 1e-4}
+         for v in ob.data.vertices]
+    bad = [i for i, d in enumerate(w) if not d]
+    if not bad:
+        return
+    good = [i for i, d in enumerate(w) if d]
+    kd = KDTree(len(good))
+    for i in good:
+        kd.insert(ob.data.vertices[i].co, i)
+    kd.balance()
+    for i in bad:
+        _, j, _ = kd.find(ob.data.vertices[i].co)
+        for n, x in w[j].items():
+            ob.vertex_groups[n].add([i], x, 'REPLACE')
+    print(f'[rig] {len(bad)} unweighted vertices took the weights of their nearest neighbour')
+
+
 def fix_rigid_boots(cfg, ob, rig, co, legs):
     """Stiff partition along the leg chain: shaft -> shin, foot -> foot bone, toe cap -> toe bone."""
     B = cfg.bone
@@ -433,6 +731,11 @@ def fix_rigid_boots(cfg, ob, rig, co, legs):
                     B(side + 'Leg'): (1 - w_up) * (1 - w_foot_zone),
                     B(side + 'Foot'): w_foot_zone - w_toe,
                     B(side + 'ToeBase'): w_toe}
+        if cfg.fixes.rigid_boots_hips:       # a leg mesh reaching the pelvis: its top follows the hips
+            hip_z = bones[B(side + 'UpLeg')].head_local.z
+            w_hip = ss_(hip_z - 0.05, hip_z + 0.02, z)
+            groups_w[B(side + 'UpLeg')] *= 1 - w_hip
+            groups_w[B('Hips')] = w_hip
         set_weights(cfg, ob, vs, groups_w)
         rew += len(vs)
     print(f'[rig] boots/stockings re-weighted rigidly: {rew} vertices')
@@ -446,6 +749,10 @@ def run(cfg):
     if cfg.hair.enabled:
         rip_hair(cfg, ob)
     co, hair, skirt, legs, seam = classify(cfg, ob)
+    if cfg.tail.enabled:                     # a tail is its own island: keep it out of the skirt
+        tail = tail_island(cfg, ob, co)
+        skirt &= ~tail
+        tl = tail_lattice(cfg, ob, rig, co, tail)
     print(f'[rig] hair verts {hair.sum()}, skirt verts {skirt.sum()}, leg verts {legs.sum()}')
     lat = {}
     sk_ax, hr_ax = cfg.skirt.axis, cfg.hair.axis
@@ -458,7 +765,12 @@ def run(cfg):
         sk_len = np.full(cfg.skirt.columns, len(sk_rows))
         lat.update(sk_pts=sk_pts, sk_thick=sk_thick, sk_len=sk_len, sk_phis=sk_phis, sk_axis=np.array(sk_ax))
         ov = overskirt_lattice(cfg, ob, co, skirt, sk_pts, sk_phis, sk_phi) if cfg.overskirt.enabled else None
-    if cfg.hair.enabled:
+    if cfg.hair.enabled and cfg.hair.mode == 'locks':
+        hl = hair_locks(cfg, ob, co, hair)
+        hr_pts, hr_len = hl['pts'], hl['len']
+        lat.update(hr_pts=hr_pts, hr_thick=hl['thick'], hr_len=hr_len, hr_breaks=hl['breaks'],
+                   hr_phis=np.radians([c['phi'] for c in hl['chains']]))
+    elif cfg.hair.enabled:
         hr_rows = cfg.hair.rows_z
         hr_phis = np.radians(np.linspace(cfg.hair.phi_range[0], cfg.hair.phi_range[1], cfg.hair.columns))
         hsel = hair & (co[:, 2] < hr_rows[0] + cfg.hair.root_band)
@@ -477,9 +789,11 @@ def run(cfg):
             ov_names = add_chain_bones(rig, 'Over', ov['pts'], B('Hips'), ov['len'], roll_axis)
     if cfg.hair.enabled:
         hr_names = add_chain_bones(rig, 'Hair', hr_pts, B('Head'), hr_len, roll_axis)
+    if cfg.tail.enabled:
+        tl_names = add_chain_bones(rig, 'Tail', tl['pts'], B('Hips'), tl['len'], roll_axis)
     bpy.ops.object.mode_set(mode='OBJECT')
     for pb in rig.pose.bones:
-        if pb.name.startswith(('Skirt_', 'Hair_', 'Over_')):
+        if pb.name.startswith(('Skirt_', 'Hair_', 'Over_', 'Tail_')):
             pb.rotation_mode = 'QUATERNION'
 
     if cfg.skirt.enabled:
@@ -508,10 +822,15 @@ def run(cfg):
                        ov_phis=ov['phis'], ov_gap=ov['gap'])
         set_weights(cfg, ob, in_idx, in_groups)
     if cfg.hair.enabled:
-        idx, groups = build_weights(co, hsel, hr_phis, hr_rows, hr_phi, False, hr_names, B('Head'))
+        if cfg.hair.mode == 'locks':
+            idx, groups = hair_lock_weights(cfg, ob, co, hair, hl, hr_names, B('Head'))
+            top_z = cfg.hair.root_z + cfg.hair.root_band
+        else:
+            idx, groups = build_weights(co, hsel, hr_phis, hr_rows, hr_phi, False, hr_names, B('Head'))
+            top_z = hr_rows[0] + cfg.hair.root_band
         set_weights(cfg, ob, idx, groups)
         # hair above the root ring (scalp, bangs) rides the head only
-        top = np.nonzero(hair & (co[:, 2] >= hr_rows[0] + cfg.hair.root_band))[0]
+        top = np.nonzero(hair & (co[:, 2] >= top_z))[0]
         set_weights(cfg, ob, top, {B('Head'): np.ones(len(top))})
 
     if cfg.fixes.nape_seam:
@@ -522,5 +841,10 @@ def run(cfg):
         fix_cross_side_legs(cfg, ob, co, hair, skirt)
     if cfg.fixes.rigid_boots:
         fix_rigid_boots(cfg, ob, rig, co, legs)
+    if cfg.tail.enabled:
+        set_weights(cfg, ob, tl['idx'], tail_weights(cfg, tl, tl_names))
+        lat.update(tl_pts=tl['pts'], tl_len=tl['len'], tl_thick=tl['thick'])
+    if cfg.fixes.unweighted:
+        fix_unweighted(cfg, ob)
     np.savez(cfg.cache('lattice.npz'), **lat)
     return lat

@@ -1,0 +1,203 @@
+# Deepseek (a Tripo-generated, toon-shaded whale maid, 1 m tall, Mixamo rig) dancing akomni's MMD
+# motion チカっとチカ千花っ♡ (niconico sm34597101), with its camera, facial track and song, in the
+# student-council room of the claude_chika example. See README.md.
+#
+# None of the assets are in this repository. Put them here (or point to them from a
+# project.local.toml next to this file):
+#   character/Deepseek_polished.blend   the rigged character
+#   source/motion.vmd, camera.vmd, facial.vmd, song.wav   from the MMD motion package
+
+[project]
+name = "DeepseekChika"
+fps = 30
+frame_start = 0
+frame_end = 2755
+
+[paths]
+character = "character/Deepseek_polished.blend"
+blend = "build/Deepseek_ChikaDance.blend"
+frames = "render/frames/chika_"
+video = "build/Deepseek_ChikaDance.mp4"
+
+[character]
+rig = "Deepseek_Rig"
+body = "Deepseek_Body"
+
+[motion]
+vmd = "source/motion.vmd"
+# Tripo's thumbs rest almost along the index finger; MMD thumb keys assume a standard MMD hand
+# (measured on an MMD model: 33 degrees off the fingers, toward the palm). And her hands are larger
+# than the motion's model: in the closing heart the fingers crossed, so the wrists spread a little.
+thumb_rest = [0.838, 0.395, 0.377]
+hands_apart = [{ start = 2588, end = 2760, ramp = 10, gap = 0.035 }]
+
+[camera]
+vmd = "source/camera.vmd"
+
+# As in claude_chika: the MMD camera's opening shot would sit inside the long skirt, so she gets a
+# high three-quarter view lying on the desk, descending to her side for the cut at frame 110.
+# (Keys moved with her hips: this motion scale puts them 2.4 cm further forward and 5.6 cm lower.)
+[[camera.shots]]
+name = "Intro"
+start = 0
+end = 110
+lens = 40
+fstop = 2.8
+keys = [[0, [-0.58, -1.00, 1.06], [0.04, -0.09, 0.41]],
+        [55, [-0.56, -1.16, 0.88], [0.03, -0.09, 0.42]],
+        [109, [-0.30, -1.28, 0.74], [0.04, -0.09, 0.44]]]
+
+[audio]
+file = "source/song.wav"
+
+[face]
+mode = "atlas"
+vmd = "source/facial.vmd"
+
+[face.atlas]
+material = "Deepseek_Face"
+lids = "inpaint"                            # soft lids from the painting itself; bangs stay in front
+mouth_center = [952, 1429]
+mouth_rect = [782, 1335, 1122, 1585]
+
+[face.atlas.eyes.L]
+lash_top = [[330, 866], [360, 850], [400, 833], [440, 816], [480, 812], [520, 806], [560, 812], [600, 820], [640, 835], [675, 848], [700, 862]]
+lash_bot = [[330, 905], [360, 898], [400, 890], [440, 885], [480, 874], [520, 863], [560, 866], [600, 868], [640, 878], [675, 888], [700, 900]]
+lower = [[330, 935], [360, 975], [400, 1015], [440, 1045], [480, 1062], [520, 1070], [560, 1070], [600, 1066], [640, 1058], [675, 1038], [700, 1012]]
+
+[face.atlas.eyes.R]
+lash_top = [[1195, 876], [1220, 858], [1260, 832], [1300, 812], [1340, 802], [1380, 800], [1420, 805], [1460, 815], [1500, 838], [1540, 872], [1580, 912], [1610, 945]]
+lash_bot = [[1195, 903], [1220, 898], [1260, 880], [1300, 868], [1340, 860], [1380, 858], [1420, 866], [1460, 880], [1500, 902], [1540, 932], [1580, 962], [1610, 975]]
+lower = [[1195, 985], [1220, 1036], [1260, 1060], [1300, 1064], [1340, 1066], [1380, 1068], [1420, 1066], [1460, 1055], [1500, 1040], [1540, 1015], [1580, 980], [1610, 968]]
+
+[hair]
+enabled = true
+material = "Deepseek_Hair"
+rip_below = 0.757
+rows_z = [0.757, 0.709, 0.661, 0.614, 0.566, 0.519, 0.471]
+adopt_head_islands = true                   # curls Tripo gave the cloth material (weighted to the head)
+phi_range = [-100.0, 100.0]                 # below the nape the hair hangs at the sides and back only
+columns = 15
+# Her long wavy hair falls apart into ~19 locks below the shoulders (two wide sheets of fused curls
+# and separate curls): one chain per lock, so each swings on its own, as on hand-rigged models.
+mode = "locks"
+split_z = 0.68
+root_z = 0.78
+joint_step = 0.045
+lock_width = 16.0
+
+# Hair: jointed chains (each joint springs toward its rest angle relative to its parent, as MMD
+# hair rigid bodies do) instead of a pull back to the rest shape: swing, lag and follow-through.
+[physics.hair]
+relative = true
+elastic = [1.0, 0.55, 0.30, 0.18, 0.12, 0.09, 0.075, 0.065, 0.06]
+stiff_lim = [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 0.9, 1.0, 1.1]
+lying_relax = 0.6
+tether = [0.0, 0.03, 0.07, 0.12, 0.17, 0.22, 0.27, 0.32, 0.37]
+drag = 0.035
+gravity_comp = 0.9
+ring_mode = "range"
+ring_min = 0.7
+ring_max = 1.35
+ring_stiff = 0.25
+bend_chain = 0.15
+bend_min = 0.9
+smooth_frames = 0.8
+
+# Skirt and apron: cloth, not rubber. Less stretch round the rings, softer joint springs, more
+# damping and bending stiffness (smooth folds, no wobble), fully inelastic contacts, and a light
+# low-pass on the result that takes out the contact jitter.
+[physics.skirt]
+elastic = [1.0, 0.24, 0.12, 0.075, 0.055, 0.045, 0.04, 0.035, 0.03]
+ring_min = 0.92
+ring_max = 1.15
+ring_stiff = [0.0, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.85, 0.85]
+bend_chain = 0.35
+bend_ring = 0.25
+drag = 0.035
+absorb = 0.95
+smooth_frames = 1.0
+
+[physics.overskirt]
+elastic = [1.0, 0.22, 0.11, 0.07, 0.055, 0.045, 0.04, 0.035, 0.03]
+drag = 0.035
+absorb = 0.95
+smooth_frames = 1.0
+
+[skirt]
+enabled = true
+top = 0.6
+rows_z = [0.58, 0.521, 0.462, 0.403, 0.344, 0.285, 0.226, 0.167, 0.108]
+
+[legs]
+min_top = 0.3
+attach = 0.01                               # the shoe buckles and straps are separate islands
+
+# The apron is the only real second layer (the navy overskirt is painted on the skirt surface):
+# it hangs on its own chains in front.
+[overskirt]
+enabled = true
+phi_range = [-75.0, 75.0]
+zbottom = 0.3                               # the apron hem is at 0.36; the gold bows below stay on the skirt
+
+# The whale tail is its own mesh island; Tripo weighted it to the left thigh.
+[tail]
+enabled = true
+seed = [0.25, 0.25, 0.42]
+
+sway = [7.0, 60.0, 5.0]                     # a slow swish down the tail, two beats long (90 bpm)
+
+[tail.physics]                              # muscular: firm at the root, free toward the fluke (it
+elastic = [1.0, 1.0, 0.45, 0.28, 0.18, 0.13, 0.10, 0.085, 0.075]   # trails turns and follows through),
+stiff_lim = [0.0, 0.0, 0.3, 0.42, 0.55, 0.65, 0.72, 0.8, 0.85]      # keeps its curl lying on the desk
+lying_relax = 0.25
+drag = 0.04
+smooth_frames = 0.8
+
+[hands]
+enabled = true
+material = "Deepseek_Skin"
+select = "wrist"                            # the skin material also covers her neck and chest
+skin_uv = [0.0367, 0.736]                   # a clean spot of neck skin in the body texture
+scale = 1.06                                # the rig's wrists sit 1 cm apart left/right: one size for both
+
+[fixes]
+nape_seam = true
+cross_side_legs_below = 0.5
+rigid_boots = true
+rigid_boots_hips = true                     # her leg mesh reaches up to the pelvis
+
+[stage]
+builder = "room.py"
+world = "AIG_World"
+sun = "AIG_Sun"                             # direction kept: the face shading driver reads it
+# Furniture placed from her hips in the body track (motion scale 0.0499 vs 0.054 for claude_chika):
+# lying on the desk her hips are at z 0.525, sitting on the sofa at (0.98, -1.10, 0.32).
+desk = [-0.22, 0.62, -0.364, 0.196, 0.425]  # x0, x1, y0, y1, top
+sofa = [0.776, 1.896, -1.181, -0.761, 0.251]  # x0, x1, front edge, seat back, seat top
+lining = { Deepseek_Cloth = [0.50, 0.50, 0.60] }   # the skirt is one layer: its inside is a darker shade
+# the skirt's blue front panel redrawn with crisp pinstripes (skirt_texture.py; see README.md)
+textures = { "Deepseek_Body_D.png" = "textures/Deepseek_Body_D_clean.png" }
+
+# The red newsboy cap of the original (hat.py): on the desk, picked up with both hands, worn for
+# the verse, taken off with the right hand and thrown into the lens. Frames from the original video
+# (its audio leads the song by 3.91 s) checked against the motion's hands.
+[stage.hat]
+model = "character/Chika_hat.fbx"
+scale = 0.215                               # the model is ~1 m wide: a puffy cap over her hair and headdress
+worn = [0.0, -0.100, 0.905]                 # rim centre on her head in the rest pose: brim just over the bangs
+tilt = -4.0                                 # degrees, worn tipped back a little (the peak lifts)
+desk = [0.50, -0.22, 0.425]                 # on the desk's front right, between her hands at the pickup
+desk_yaw = 25.0
+frames = [1474, 1502, 1638, 1662, 1666]     # pickup, on the head, take-off grab, release, at the lens
+lens_gap = 0.10                             # m in front of the camera when it fills the frame
+spin = 270.0                                # degrees it turns in flight
+
+# The face painting was projected from the front; the mesh under the painted jaw and round the
+# lips is reshaped in depth only, so the drawn chin and mouth hold from every angle (face_shape.py).
+[stage.face_shape]
+material = "Deepseek_Face"
+mouth_z = 0.820                             # only below this height is the jaw reshaped
+neck_y = -0.082                             # depth the under-jaw falls back to (the neck front)
+jaw_ramp_px = 60                            # texture px outside the painted face over which it falls back
+mouth_box = [-0.0018, 0.8246, 0.011, 0.006] # x, z of the painted mouth, half width, half height (m)

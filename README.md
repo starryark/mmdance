@@ -13,6 +13,18 @@ video, headless, from one config file.
 
 ## Demo
 
+https://github.com/user-attachments/assets/26e7c1ac-1053-4331-812b-8187a1a2b12a
+
+*[projects/dreamwings](projects/dreamwings): two Tripo-generated characters, Claude and then
+ChatGPT, dance 鸭梨P's MMD motion 梦的翅膀受了伤 (15 s, the meme's choreography) in the Anthropic
+lobby. The lobby is appended from its own `.blend` and scaled around the dance. The camera is
+solved frame by frame from the meme's reference video, whip pans and all, and the hand-off between
+the two dancers is one continuous whip. Both builds start from the untouched character files: the
+retargeted dance, the simulated gowns, hair, sleeves and tail, the faces, and the motion blur. Shown
+as an under-10 MB copy of the 1080p render; credits in [the project](projects/dreamwings#credits-借物表).*
+
+### The first production: Chika Dance
+
 https://github.com/user-attachments/assets/e68a693f-9448-4adc-9f07-b09c7fcc77f6
 
 *[projects/claude_chika](projects/claude_chika), the production mmdance was built for: a
@@ -40,8 +52,9 @@ hair physics, animates the face, and renders with the original camera and music.
   between upper arm and forearm. MMD's foot IK is solved by an analytic two-bone leg IK.
 - **The MMD camera** (`camera.vmd`), plus optional custom shots for stretches where the original
   camera doesn't suit your model.
-- **Secondary motion** for skirts, layered gowns and long hair. Bone chains are laid through the
-  mesh automatically and simulated with a position-based solver:
+- **Secondary motion** for skirts, layered gowns and aprons, long hair (as one curtain or lock by
+  lock) and tails. Bone chains are laid through the mesh automatically and simulated with a
+  position-based solver:
   - jointed chains with angular limits, as in MMD rigid-body skirts and DynamicBone;
   - capsule colliders measured from the body;
   - furniture box colliders and inelastic contacts.
@@ -51,10 +64,12 @@ hair physics, animates the face, and renders with the original camera and music.
   texture (common for image-to-3D characters) through expression atlases built from the painting
   itself.
 - **Repairs for auto-rigged meshes:**
-  - rebuilding fused finger blobs as real hands from the finger bones;
-  - ripping hair from clothing;
+  - rebuilding fused finger blobs as real hands from the finger bones, with the finger joints
+    moved to drawn-hand proportions;
+  - ripping hair from clothing, and hair curls that carry the clothing material;
   - rigid boot weights;
-  - cross-side leg weight cleanup.
+  - cross-side leg weight cleanup;
+  - vertices left without weights.
 - **Stage, lighting, render** (EEVEE), resumable parallel rendering, and encoding with the song.
   Picture and sound fade out together.
 
@@ -63,14 +78,31 @@ results, keyed by its inputs, so a rebuild only recomputes what changed.
 
 ## Status
 This was built for one production: a Tripo-generated 1 m toon character dancing a 94 s MMD motion
-([projects/claude_chika](projects/claude_chika), the [demo](#demo) above). The engine (retargeting, camera, chains and
+([projects/claude_chika](projects/claude_chika), the [Chika Dance
+video](#the-first-production-chika-dance) above). The engine (retargeting, camera, chains and
 physics, face states, render, encode) is generic and config-driven, and it reproduces that
 production's output exactly: every cache, the face atlases and the rendered frames match. The
 generic path was also smoke-tested on the same character: the default stage, a follow camera,
-shape-key faces, no repairs, and a range starting mid-dance. So far it has only been run on that one
-character. Expect to tune the lattice heights and physics for a new outfit. The face atlas needs
-measured guide curves for each painted face. Stage builders like the example room are per project.
-Tested on Windows 11 only, with Blender 5.2.
+shape-key faces, no repairs, and a range starting mid-dance.
+
+Since then it has made videos with three Tripo characters and two dances. Each new mesh added the
+options it needed, all opt-in:
+- [projects/deepseek_chika](projects/deepseek_chika): a whale maid with an apron, a tail and
+  hands that share their material with her neck.
+- [projects/chatgpt_chika](projects/chatgpt_chika): a dragon woman with wings, a tail and bell
+  sleeves. Project code simulates the sleeves and beats the wings.
+- [projects/claude_chika_v3](projects/claude_chika_v3): the first production redone, with hair
+  per lock, a calmer gown, drawn-hand finger joints and a face rebuilt as geometry.
+- [projects/dreamwings](projects/dreamwings): a second dance, a 15 s motion-capture meme. Claude
+  and ChatGPT take turns on a set appended from another `.blend`, filmed by a camera solved from
+  the reference video.
+
+Expect to tune the lattice heights and physics for a new outfit, and the hair for a new dance.
+The face atlas needs measured guide curves for each painted face; a painted face on a sculpted
+head is better rebuilt as geometry (project code in
+[projects/claude_chika_v3](projects/claude_chika_v3), not yet an engine mode). Stage builders,
+sets and solved cameras are per project. Builds were run on Windows 11 with Blender 5.2. The
+DreamWings frames were rendered on Linux, on a cloud GPU, from packed copies of the built scenes.
 
 ## Requirements
 - **Blender 5.2+** with the **MMD Tools** extension (Edit › Preferences › Get Extensions ›
@@ -108,13 +140,17 @@ committed. See [docs/new-character.md](docs/new-character.md) for the walkthroug
 | `tools/` | `inspect_character`, `stills` (check renders), `physics_qa` (motion / hem-lag metrics), `plot_character` |
 | `projects/template/` | Starting point for a new project |
 | `projects/claude_chika/` | The full example: config, the room stage builder, notes and limits |
+| `projects/deepseek_chika/` | A second character on the same dance: apron layer, tail chain, shared-material hands, a skirt texture cleanup, and the room lit by sunlight through its windows |
+| `projects/chatgpt_chika/` | A third character: wings, tail and bell sleeves (sleeve simulation and wing beat as project code), on a model whose parts were repaired first |
+| `projects/claude_chika_v3/` | The example redone: hair per lock, a calmer gown, finger joints, the cap prop, and the face rebuilt as geometry (mouth, layered eyes, shape keys) |
+| `projects/dreamwings/` | A second dance with two characters taking turns: a set appended from another `.blend`, a camera keyed from a solved track, light linking, motion blur |
 | `tests/` | Unit tests that run in system Python (`python -m unittest`) |
 
 ## Assets and licence
 The code is MIT licensed. **No characters, motions or music are included or redistributed.** The
-demo video and the stills in `docs/media` are renders of the example project, shown to illustrate
-the pipeline; the motion and song in them belong to their authors (see the
-[credits](projects/claude_chika#credits)). MMD motions and songs carry their authors' terms. Read
+demo videos and the stills in `docs/media` are renders of the example projects, shown to illustrate
+the pipeline; the motions and songs in them belong to their authors (see the credits of
+[claude_chika](projects/claude_chika#credits) and [dreamwings](projects/dreamwings#credits-借物表)). MMD motions and songs carry their authors' terms. Read
 and follow them, credit the authors, and check whether derivative videos are allowed before you
 publish one. The `.gitignore` keeps `.blend`, `.vmd`, audio, video, images (apart from the docs
 stills) and caches out of the repository.
@@ -163,19 +199,31 @@ No. For native MMD models use [MMD Tools](https://github.com/MMD-Blender/blender
   to your shape keys.
 - Painted-face characters (common from image-to-3D) have no shape keys. For those, `face.mode =
   "atlas"` builds blink, smile and mouth tiles from the face texture itself.
+- If the painting sits on a sculpted face (a nose, lips, eye sockets), the sculpt still shows
+  through drawn features: the outline catches its creases. Rebuild the face as anime models are
+  built, with a geometric mouth, layered eyes and shape keys. A project-level example is
+  [projects/claude_chika_v3](projects/claude_chika_v3) (`face_rebuild.py`); see
+  [a new character](docs/new-character.md).
+- Facial tracks made from motion capture can be wrong. One read the dancer's squinting grin as
+  closed eyes on 90 % of its frames. `python -m mmdance vmd facial.vmd` shows each morph's range
+  and how often it is above 0.5; write a cleaned track if it doesn't fit your character.
 
 **The MMD camera clips into my character or frames it badly.**
 Add `[[camera.shots]]`: a camera of your own over a frame range, which replaces the MMD camera
-there. Without any `camera.vmd`, a front camera follows the dancer.
+there. Without any `camera.vmd`, a front camera follows the dancer. A stage builder can also key
+a camera of its own: [projects/dreamwings](projects/dreamwings) keys one solved from the dance's
+reference video.
 
 **My generated character's hands are fused blobs.**
 `[hands] enabled = true` rebuilds them from the finger bones (implicit surface + marching cubes) in
 the hands' material slot, weighted with joint blends.
 
 **Does it run headless or on a render server?**
-Yes. Everything runs through `blender -b`. It has been tested on Windows 11 with an EEVEE GPU
-render. `render.engine = "CYCLES"` is accepted but untested, and the example's toon shaders are
-EEVEE-only.
+Yes. Everything runs through `blender -b`. Builds have been run on Windows 11. EEVEE renders
+have run on Windows 11 and on a Linux cloud GPU (an L40S on RunPod), from a packed copy of the
+built scene. Headless EEVEE on Linux needs the driver's graphics libraries; see
+[rendering elsewhere](docs/new-character.md#5-render). `render.engine = "CYCLES"` is accepted but
+untested, and the example's toon shaders are EEVEE-only.
 
 **How long does it take?**
 For the 94 s example on the development machine:

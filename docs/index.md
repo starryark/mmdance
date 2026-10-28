@@ -14,9 +14,11 @@ headless, and everything is set in one config file. Code:
 
 [![A Tripo-generated anime character with long orange hair dances an MMD motion in Blender, kicking one leg out while her simulated white and black ball gown flares](media/claude-chika-kick.jpg)](https://github.com/starryark/mmdance#demo)
 
-*The example production: a Tripo-generated character dances a 94 s MMD motion with the
+*The first production: a Tripo-generated character dances a 94 s MMD motion with the
 package's camera, facial track and song, the gown and hair simulated.
-[Watch the demo video on GitHub](https://github.com/starryark/mmdance#demo).*
+[Watch the demo videos on GitHub](https://github.com/starryark/mmdance#demo): this one, and two
+characters taking turns in a 15 s meme on a set from another `.blend`, filmed by a camera solved
+from the reference video.*
 
 ## What it does
 - **VMD → Mixamo retargeting.** MMD Tools evaluates the VMD on a proxy MMD skeleton built at your
@@ -24,10 +26,10 @@ package's camera, facial track and song, the gown and hair simulated.
   are shared between upper arm and forearm, and the legs are solved with a two-bone IK to MMD's
   foot targets.
 - **The MMD camera**, plus custom shots where the original camera doesn't fit your model.
-- **Skirt, layered gown and long-hair physics.** Bone chains are laid through the mesh and
-  simulated with a position-based solver: jointed chains with angular limits, as in MMD
-  rigid-body skirts and DynamicBone, with body capsule colliders and furniture boxes. The result
-  is baked to keyframes.
+- **Skirt, layered gown, long-hair and tail physics.** Bone chains are laid through the mesh
+  (for hair, one per lock if you like) and simulated with a position-based solver: jointed
+  chains with angular limits, as in MMD rigid-body skirts and DynamicBone, with body capsule
+  colliders and furniture boxes. The result is baked to keyframes.
 - **Facial animation** from the VMD morphs, on shape keys or on *painted* faces through expression
   atlases made from the texture.
 - **Repairs for auto-rigged meshes:**
@@ -54,7 +56,8 @@ Requirements:
 - [Walkthrough: a new character or dance](new-character.html)
 - [How it works: retargeting, physics, face, render](how-it-works.html)
 - [Every config key, with defaults](https://github.com/starryark/mmdance/blob/main/mmdance/defaults.toml)
-- [The full example project](https://github.com/starryark/mmdance/tree/main/projects/claude_chika)
+- [The full example project](https://github.com/starryark/mmdance/tree/main/projects/claude_chika),
+  and [the other productions](https://github.com/starryark/mmdance/tree/main/projects)
 - [FAQ](https://github.com/starryark/mmdance#faq)
 - [llms.txt](llms.txt), a documentation index for LLMs and AI agents
 
@@ -73,8 +76,13 @@ Enable `[skirt]`, `[overskirt]` or `[hair]` in `project.toml` and set the joint 
 
 **How do I get blinks and lip sync from the facial VMD?**
 Map the VMD morphs (まばたき, あ, い, う, え, お, ...) to shape keys with `face.mode = "shapekeys"`,
-or use `face.mode = "atlas"` for a painted face texture.
+or use `face.mode = "atlas"` for a painted face texture. A painted face on a sculpted head is
+better rebuilt as geometry, with a mouth opening and eyes in layers; see
+[A new character](new-character.html).
 
 **Status.** Built for, and verified against, one 94 s production with a Tripo-generated character,
-which it reproduces exactly. It has not yet been run on a second character. Tested on Windows 11
-with Blender 5.2. No characters, motions or music are distributed.
+which it reproduces exactly. Since then it has made videos with three Tripo characters (a layered
+ball gown; an apron and a tail; wings, a tail and bell sleeves) and two dances, one of them a
+motion-capture meme on a set from another `.blend`. Each added opt-in options. Builds were run on
+Windows 11 with Blender 5.2, renders on Windows and on a Linux cloud GPU. No characters, motions
+or music are distributed.

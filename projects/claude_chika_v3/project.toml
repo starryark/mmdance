@@ -1,0 +1,240 @@
+# Claude v3: the claude_chika production redone with what the Deepseek production taught: the
+# room after the original ED lit by the sun through its windows, the red cap thrown into the lens,
+# hair rigged per lock, calmer gown, anatomical hands, the thumb rest and the closing heart.
+# (projects/claude_chika stays as it was: it is the pipeline's regression standard.)
+#
+# None of the assets are in this repository. Put them here (or point to them from a
+# project.local.toml next to this file):
+#   character/Claude_polished.blend   the rigged character
+#   source/motion.vmd, camera.vmd, facial.vmd, song.wav   from the MMD motion package
+
+[project]
+name = "Chika"
+fps = 30
+frame_start = 0
+frame_end = 2755
+
+[paths]
+character = "character/Claude_polished.blend"
+blend = "build/Claude_ChikaDance.blend"
+frames = "render/frames/chika_"
+video = "build/Claude_ChikaDance.mp4"
+
+[character]
+rig = "Claude_Rig"
+body = "Claude_Body"
+
+[motion]
+vmd = "source/motion.vmd"
+scale = 0.054
+# Tripo's thumbs rest 13 degrees flatter than a standard MMD hand's (measured on an MMD model), which
+# the MMD thumb keys assume. In the closing heart the index tips crossed by 1 cm: the wrists spread.
+thumb_rest = [0.838, 0.395, 0.377]
+hands_apart = [{ start = 2588, end = 2760, ramp = 10, gap = 0.025 }]
+
+[camera]
+vmd = "source/camera.vmd"
+
+# The MMD camera opens with a tight shot made for a slim model in a short skirt; with this ball
+# gown the lens would sit inside the skirt. She lies face-down on the desk kicking her boots, so
+# the intro gets its own camera: a high three-quarter view looking down on her, descending to
+# her side for the cut to the MMD camera's wide shot at frame 110.
+[[camera.shots]]
+name = "Intro"
+start = 0
+end = 110
+lens = 40
+fstop = 2.8
+keys = [[0, [-0.58, -0.98, 1.12], [0.04, -0.07, 0.47]],
+        [55, [-0.56, -1.14, 0.94], [0.03, -0.07, 0.48]],
+        [109, [-0.30, -1.26, 0.80], [0.04, -0.07, 0.50]]]
+
+[audio]
+file = "source/song.wav"
+
+[face]
+mode = "none"                               # the face's shape keys are keyed by face_rebuild.py
+vmd = "source/facial.vmd"
+
+[face.atlas]
+material = "Claude_Face"
+clean = true
+mouth_center = [848, 1624]
+mouth_rect = [680, 1530, 1020, 1780]
+halo_boxes = [[600, 870, 1060, 1150]]      # grey halos round the strokes at the nose bridge
+corner_box = [138, 880, 252, 1075]         # grey blocks at the left eye's outer corner
+corner_eye = "L"
+
+[face.atlas.eyes.L]
+lash_top = [[160, 972], [200, 955], [250, 935], [300, 920], [350, 918], [400, 925], [440, 941], [480, 962], [520, 988], [560, 1018], [604, 1056]]
+lash_bot = [[160, 1004], [190, 986], [240, 975], [300, 968], [360, 968], [420, 975], [470, 990], [520, 1020], [570, 1054], [604, 1078]]
+lower = [[160, 1062], [180, 1086], [205, 1112], [250, 1145], [300, 1163], [350, 1167], [400, 1162], [460, 1155], [510, 1144], [560, 1115], [604, 1082]]
+
+[face.atlas.eyes.R]
+lash_top = [[1050, 1046], [1090, 1003], [1130, 963], [1180, 935], [1230, 914], [1280, 905], [1330, 900], [1380, 896], [1430, 895], [1480, 897], [1530, 903], [1570, 917], [1600, 935]]
+lash_bot = [[1050, 1050], [1090, 1030], [1140, 997], [1180, 972], [1230, 956], [1300, 950], [1363, 950], [1413, 953], [1463, 956], [1530, 964], [1570, 975], [1600, 990]]
+lower = [[1050, 1052], [1080, 1068], [1110, 1086], [1170, 1122], [1230, 1137], [1300, 1139], [1350, 1133], [1410, 1118], [1460, 1096], [1520, 1046], [1570, 1002], [1600, 992]]
+
+[hair]
+enabled = true
+material = "Claude_Hair"
+# Below the shoulders her long hair is 29 separate locks: one chain per lock, so each swings on its
+# own (as on hand-rigged MMD models), instead of one curtain round the head.
+mode = "locks"
+split_z = 0.68
+root_z = 0.78
+joint_step = 0.045
+lock_width = 16.0
+
+# Hair: jointed chains (each joint springs toward its rest angle relative to its parent, as MMD
+# hair rigid bodies do): swing, lag and follow-through.
+[physics.hair]
+relative = true
+elastic = [1.0, 0.55, 0.30, 0.18, 0.12, 0.09, 0.075, 0.065, 0.06]
+stiff_lim = [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 0.9, 1.0, 1.1]
+lying_relax = 0.6
+tether = [0.0, 0.03, 0.07, 0.12, 0.17, 0.22, 0.27, 0.32, 0.37]
+drag = 0.035
+gravity_comp = 0.9
+ring_mode = "range"
+ring_min = 0.7
+ring_max = 1.35
+ring_stiff = 0.25
+bend_chain = 0.15
+bend_min = 0.9
+smooth_frames = 0.8
+
+# Gown: cloth, not rubber. Less stretch round the rings, more bending stiffness and damping,
+# fully inelastic contacts, and a light low-pass on the result that takes out contact jitter.
+[physics.skirt]
+elastic = [1.0, 0.26, 0.13, 0.085, 0.065, 0.055, 0.047, 0.042, 0.038]
+ring_min = 0.9
+ring_max = 1.2
+ring_stiff = [0.0, 0.6, 0.62, 0.66, 0.7, 0.74, 0.78, 0.8, 0.8]
+bend_chain = 0.32
+bend_ring = 0.22
+drag = 0.03
+absorb = 0.95
+smooth_frames = 1.0
+
+[physics.overskirt]
+elastic = [1.0, 0.24, 0.12, 0.08, 0.06, 0.05, 0.045, 0.04, 0.035]
+drag = 0.03
+absorb = 0.95
+smooth_frames = 1.0
+
+[skirt]
+enabled = true
+
+[overskirt]
+enabled = true
+
+[hands]
+enabled = true
+material = "Claude_Skin"
+line_material = "Claude_Skin_Line"
+scale = 1.0
+palm_plane_z = 0.8205
+# The auto-rig spaces each finger's joints evenly (1 : 0.95 : 0.95) and crowds the knuckles (span 0.47
+# of the palm length; 0.64 on the MMD reference): the fingers bent in the wrong places and fused.
+phalanges = [1.0, 0.62, 0.55]
+spread = 1.25
+outline_weight = 0.85
+
+[fixes]                                     # Tripo's weight errors on this mesh
+nape_seam = true                            # it leaked arm weights into the hair/cloth seam
+waist_z = [0.65, 0.76]                      # it gave the corset hem thigh weights
+cross_side_legs_below = 0.55                # the boots almost touch: weights bled across
+rigid_boots = true                          # smeared weights made the boot crumple
+
+[stage]
+builder = "room.py"                         # the Deepseek v2 room: after the original ED, sun through the windows
+world = "AIG_World"
+sun = "AIG_Sun"                             # direction kept: the face shading driver reads it
+desk = [-0.22, 0.62, -0.34, 0.22, 0.48]     # x0, x1, y0, y1, top
+sofa = [0.84, 1.96, -1.24, -0.82, 0.29]     # x0, x1, front edge, seat back, seat top
+# Props where her body, hair and gown never come within 5 cm over the whole dance (mapped on the
+# desk top): laptop and lamp at the back right; no phone (the front right is the cap's).
+props = { laptop = [0.535, 0.14, -14.0], lamp = [0.39, 0.19] }
+
+# The red newsboy cap of the original (hat.py): on the desk, picked up with both hands, worn for
+# the verse, taken off with the right hand and thrown into the lens.
+[stage.hat]
+model = "character/Chika_hat.fbx"
+scale = 0.215
+worn = [0.0, -0.06, 0.965]                  # rim centre in the rest pose: brim just above the bangs
+tilt = -6.0
+desk = [0.52, -0.25, 0.48]                  # front right, brim over the edge: her hands reach it at 1473
+desk_yaw = 25.0
+frames = [1473, 1502, 1638, 1662, 1666]     # pickup, on the head, take-off grab, release, at the lens
+lens_gap = 0.10
+spin = 270.0
+
+# The face rebuilt as 3D anime faces are made (face_rebuild.py, face_textures.py): a clean face surface
+# without the sculpted nose, lips and eye sockets, a real mouth (an opening with a lip line, the inside of
+# the mouth, teeth and tongue) and eyes in layers (eyeball under an upper and a lower lid), all animated
+# by shape keys from the facial track. It replaces the earlier depth-smoothed sculpt (face_shape.py) and
+# the painted expression tiles ([face.atlas] still gives the painting's guide curves). Rest pose, metres.
+[stage.face_rebuild]
+material = "Claude_Face"
+adopt_max_polys = 150                       # patches of other materials set into the face (the mouth slit and
+adopt_ratio = 0.6                           # eye corners were cloth) join it if mostly bordered by it
+mirror_x = 0.0                              # the face mesh's symmetry plane (measured: 0.3 mm median error)
+smooth_mm = 6.0                             # blur of the old face's depth: its relief (a 7 mm nose, lips, sockets) goes
+nose_keep = 0.3                             # ... but this much of the nose stays (a small nose in profile)
+nose_radii_mm = [3.5, 7.0]
+edge_ramp_mm = 6.0                          # the old surface at the outline, the smooth one from this far inside
+fill_spacing_mm = 2.0
+outline_fade_mm = 5.0                       # the outline fades out this far inside the face's edge (none inside)
+normal_center = [0.0, -0.02, 0.915]         # shading normals from an ellipsoid round the head, behind the face
+normal_radii = [1.0, 0.75, 1.1]             # wider than deep: a broad, flat-lit face front
+normal_ramp_mm = 4.0                        # (the surface's own normals only right at the outline)
+# the mouth: at rest a closed line where the painting had it (11 mm wide, slightly arched)
+mouth_line_px = 1621
+mouth_width_mm = 11.0
+mouth_arch_mm = 0.35
+mouth_rest_gap_mm = 0.02
+mouth_segments = 16
+lip_upper_mm = 0.32                         # the lip line: a strip round the opening, thinner below, tapered
+lip_lower_mm = 0.2
+lip_corner_mm = 0.3
+mouth_rings_mm = [1.0, 2.2, 3.8, 5.8]       # rings round it, following the rim less and less
+ring_follow_up = [0.65, 0.4, 0.18, 0.05]
+ring_follow_low = [0.8, 0.55, 0.3, 0.1]     # (more below: the jaw)
+cavity_depth_mm = [0.8, 4.0]                # inside of the mouth: behind the surface at its edge, + at its middle
+teeth_width = 0.85                          # upper teeth, of the mouth's width
+teeth_rest_mm = 0.4
+teeth_depth_mm = 0.45
+tongue_rest_mm = -3.4
+tongue_radii_mm = [2.6, 1.25]
+tongue_depth_mm = 1.6
+tongue_bulge_mm = 0.5
+vowel_gain = 1.0
+# the eyes (painting pixels unless mm)
+eye_columns = 24
+eye_end_px = 16                             # the layers fade out sideways past the corners
+eye_cast_from_y = -0.045                    # past the face's outline the layers lie on the head, found from inside
+lid_rows_px = [20, 42, 66]                  # upper lid skin above the lash band
+lid_alpha = [1.0, 0.6, 0.0]
+lid_follow = [0.55, 0.25, 0.0]              # how far those rows go down with the lash band
+lower_rows_px = [6, 22, 42]
+lower_alpha = [1.0, 0.6, 0.0]
+lower_follow = [0.7, 0.35, 0.0]
+ball_margin_px = 14                         # the eyeball reaches this far under the lids
+lid_offset_mm = 0.24                        # in front of the face: upper lid over lower lid over eyeball
+lower_offset_mm = 0.17
+ball_offset_mm = 0.08
+lid_overlap_px = 5                          # closed: the lash band comes down over the lower lid by this much
+eye_smile_frac = 0.5                        # ^^: down by this of the eye's height, the lower lid rising behind it
+# textures (painting pixels)
+skin_min_value = 0.82                       # skin pixels the clean skin is made from
+skin_min_sat = 0.08                         # (paler: hair highlights and halos)
+skin_max_sat = 0.26
+region_grow_px = 16                         # the clean skin reaches this far past the outline
+nose_box = [760, 1240, 910, 1400]           # the painted nose, kept
+nose_shift_px = [33, 0]                     # ... moved onto the centre line (the painting is 1.6 mm off it)
+mouth_center_px = [848, 1624]               # the painted mouth line, removed
+lid_edge_run = 8
+lower_inset_px = 3
+opening_x_px = [1050, 1570]                 # the eye white ends here (hair strands past the outer corner)
+eyeball_grow = 6

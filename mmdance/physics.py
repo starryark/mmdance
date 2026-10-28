@@ -19,12 +19,14 @@ from .util import channelbag, hide_others, put_curve, rig_and_body
 
 SIDES = ('Left', 'Right')
 TRACK = ps.TRACK
-PARTS = (('sk', 'skirt', 'Skirt', 'Hips'), ('ov', 'overskirt', 'Over', 'Hips'), ('hr', 'hair', 'Hair', 'Head'))
+PARTS = (('sk', 'skirt', 'Skirt', 'Hips'), ('ov', 'overskirt', 'Over', 'Hips'), ('hr', 'hair', 'Hair', 'Head'),
+         ('tl', 'tail', 'Tail', 'Hips'))
 
 
 def params(cfg, part, nrows):
     """Solver parameters for a lattice, as numpy arrays where the config has lists."""
-    p = {k: (np.array(v, float) if isinstance(v, list) else v) for k, v in cfg.physics[part].items()}
+    sec = cfg.tail.physics if part == 'tail' else cfg.physics[part]
+    p = {k: (np.array(v, float) if isinstance(v, list) else v) for k, v in sec.items()}
     p.setdefault('goal', np.zeros(nrows))
     sub = cfg.physics.substeps
     p['goal_sub'] = 1 - (1 - np.clip(p['goal'], 0, 0.999)) ** (1.0 / sub)
@@ -176,11 +178,25 @@ def lattices(cfg, rest, lat):
     if 'hr_pts' in lat:
         hr_rad = np.array([lat['hr_thick'][c, k] for c in range(lat['hr_pts'].shape[0]) for k in range(lat['hr_len'][c])])
         L['hr'] = ps.Lattice('hair', lat['hr_pts'], lat['hr_len'], rest[ti['Head']], False,
-                             params(cfg, 'hair', lat['hr_pts'].shape[1]), np.clip(hr_rad * 0.7 + 0.008, 0.01, 0.03))
+                             params(cfg, 'hair', lat['hr_pts'].shape[1]), np.clip(hr_rad * 0.7 + 0.008, 0.01, 0.03),
+                             lat['hr_breaks'] if 'hr_breaks' in lat else ())
     if 'ov_pts' in lat:
         L['ov'] = ps.Lattice('over', lat['ov_pts'], lat['ov_len'], rest[ti['Hips']], False,
                              params(cfg, 'overskirt', lat['ov_pts'].shape[1]), cfg.physics.overskirt.radius)
+    if 'tl_pts' in lat:
+        tl_rad = np.array([lat['tl_thick'][c, k] for c in range(2) for k in range(lat['tl_len'][c])])
+        L['tl'] = ps.Lattice('tail', lat['tl_pts'], lat['tl_len'], rest[ti['Hips']], False,
+                             params(cfg, 'tail', lat['tl_pts'].shape[1]),
+                             np.maximum(tl_rad - cfg.tail.width / 2, 0.006))
+        L['tl'].pinned = L['tl'].row < cfg.tail.pinned_rows      # the part inside the body rides the hips
     return L
+
+
+def push_subset(x, m, rad, sk, hips_D, outer, axis):
+    """skirt_surface_push on the particles in mask m only."""
+    xs = x[m]
+    ps.skirt_surface_push(xs, rad[m], sk, hips_D, outer, axis)
+    x[m] = xs
 
 
 def simulate(cfg, mats, rest, caps, lat, boxes, path):
@@ -192,7 +208,7 @@ def simulate(cfg, mats, rest, caps, lat, boxes, path):
     sub = cfg.physics.substeps
     sim = ps.Sim(cfg.project.fps, sub, gravity(cfg), boxes)
     L = lattices(cfg, rest, lat)
-    sk, ov, hr = L.get('sk'), L.get('ov'), L.get('hr')
+    sk, ov, hr, tl = L.get('sk'), L.get('ov'), L.get('hr'), L.get('tl')
     if sk is not None:
         sk_outer = lat['sk_thick'] + 0.004
         # hair rides over the panels where they exist: margin = rest gap between skirt and panel surface
@@ -208,6 +224,9 @@ def simulate(cfg, mats, rest, caps, lat, boxes, path):
         caps = rest_consistent(caps, ov, 'S')
     if hr is not None:
         caps = rest_consistent(caps, hr, 'H')
+    if tl is not None:              # the tail's own copy: it must not shrink the skirt's colliders
+        caps_tl = rest_consistent(caps, tl, 'S')
+        tl_free = tl.row >= cfg.tail.pinned_rows
     out = {k: np.zeros((nf, l.n, 3)) for k, l in L.items()}
 
     def delta(f):
@@ -241,18 +260,28 @@ def simulate(cfg, mats, rest, caps, lat, boxes, path):
                 if sk is not None and upright:
                     push = (lambda x: ps.skirt_surface_push(x, hr.radius, sk, hips_D, sk_outer_hair, lat['sk_axis']))
                 sim.step_lattice(hr, root_c, rest[head_i][:3, :3], caps_at(caps, Dm, 'H'), extra=push)
+            if tl is not None:
+                # the tail hangs outside the skirt (its pinned root rows are inside it)
+                tl_push = None
+                if sk is not None and upright:
+                    tl_push = (lambda x: push_subset(x, tl_free, tl.radius, sk, hips_D, sk_outer, lat['sk_axis']))
+                sim.step_lattice(tl, root_h, rest[hips_i][:3, :3], caps_at(caps_tl, Dm, 'S'), extra=tl_push)
         prev = cur
         if step >= cfg.physics.preroll:
             for k, l in L.items():
                 out[k][f] = l.x
         if step % 300 == 0:
             print(f'[physics] sim step {step}/{len(schedule)}  {time.time() - t0:.0f}s')
-    np.savez(path, **out)
+    if not cfg.flags.get('until'):          # a partial run must not pass for the full simulation
+        np.savez(path, **out)
     return out, L
 
 
-def frames_for(X, L):
-    """Orthonormal frame per bone (column c, row k) from lattice neighbours."""
+def frames_for(X, L, side=None):
+    """Orthonormal frame per bone (column c, row k) from lattice neighbours.
+
+    Neighbours across a cut link (L.breaks) don't count; a chain with no linked neighbour takes
+    its lateral axis from `side` (the root bone's own side axis at this frame)."""
     F = {}
     for (c, k), i in L.id_of.items():
         if k + 1 >= L.lens[c]:
@@ -262,11 +291,13 @@ def frames_for(X, L):
         def nb(cc):
             if L.wrap:
                 cc %= L.ncol
-            if cc < 0 or cc >= L.ncol:
+            if cc < 0 or cc >= L.ncol or min(c, cc) in L.breaks:
                 return None
             return X[L.id_of[(cc, min(k, L.lens[cc] - 1))]]
         l_, r_ = nb(c - 1), nb(c + 1)
         lat = (r_ if r_ is not None else X[i]) - (l_ if l_ is not None else X[i])
+        if l_ is None and r_ is None and side is not None:
+            lat = side
         y = y / (np.linalg.norm(y) + 1e-9)
         x = lat - (lat @ y) * y
         n = np.linalg.norm(x)
@@ -279,12 +310,70 @@ def frames_for(X, L):
     return F
 
 
+POST_KEYS = ('smooth_frames', 'sway')     # applied after the simulation: not part of its cache key
+
+
+def sim_params(sec):
+    """A config section without the post-simulation keys (nested sections too)."""
+    return {k: (sim_params(v) if isinstance(v, dict) else v) for k, v in sec.items() if k not in POST_KEYS}
+
+
+def gauss_time(a, sigma):
+    """Gaussian filter along axis 0 with edge padding (numpy only: Blender has no scipy)."""
+    r = int(np.ceil(3 * sigma))
+    k = np.exp(-0.5 * (np.arange(-r, r + 1) / sigma) ** 2)
+    k /= k.sum()
+    pad = np.concatenate([np.repeat(a[:1], r, 0), a, np.repeat(a[-1:], r, 0)])
+    out = np.zeros_like(a)
+    for i, w in enumerate(k):
+        out += w * pad[i:i + len(a)]
+    return out
+
+
+def smooth_in_time(cfg, mats, sims, L):
+    """Low-pass each lattice in its root bone's frame (`smooth_frames`: Gaussian sigma in frames).
+
+    Removes the frame-to-frame jitter that contact corrections leave, without touching the
+    swing: the body's own motion is taken out first, so only the fabric's motion is filtered."""
+    ti = {n: i for i, n in enumerate(TRACK)}
+    out = dict(sims)
+    for key, part, _, root in PARTS:
+        if key not in L:
+            continue
+        sec = cfg.tail.physics if part == 'tail' else cfg.physics[part]
+        sig = sec.get('smooth_frames', 0.0)
+        if sig <= 0:
+            continue
+        R, o = mats[:, ti[root], :3, :3], mats[:, ti[root], :3, 3]
+        X = sims[key]
+        loc = np.einsum('fji,fnj->fni', R, X - o[:, None, :])
+        loc = gauss_time(loc, sig)
+        out[key] = np.einsum('fij,fnj->fni', R, loc) + o[:, None, :]
+    return out
+
+
+def tail_sway(cfg, quats, names, nf):
+    """A living tail: a slow side-to-side swish travelling down the chain, on top of its physics."""
+    amp, period, lag = cfg.tail.sway
+    if not amp:
+        return
+    rows = max(k for _, k in names) + 1
+    f = np.arange(nf) + cfg.project.frame_start
+    for (c, k), q in quats.items():
+        a = np.radians(amp) * (k / max(rows - 1, 1)) * np.sin(2 * np.pi * (f - k * lag) / period)
+        s = np.stack([np.cos(a / 2), 0 * a, 0 * a, np.sin(a / 2)], 1)          # about the bone's own Z
+        w1, x1, y1, z1 = q.T
+        w2, x2, y2, z2 = s.T
+        quats[(c, k)] = np.stack([w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2, w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+                                  w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2, w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2], 1)
+
+
 def bake(cfg, rig, mats, rest, sims, L):
     ti = {n: i for i, n in enumerate(TRACK)}
     bones = rig.data.bones
     cbag = channelbag(rig)
     for fc in list(cbag.fcurves):          # drop old physics curves
-        if 'Skirt_' in fc.data_path or 'Hair_' in fc.data_path or 'Over_' in fc.data_path:
+        if any(p + '_' in fc.data_path for _, _, p, _ in PARTS):
             cbag.fcurves.remove(fc)
     nf = mats.shape[0]
     frames = np.arange(cfg.project.frame_start, cfg.project.frame_end + 1, dtype=np.float32)
@@ -292,14 +381,15 @@ def bake(cfg, rig, mats, rest, sims, L):
         if key not in L:
             continue
         lat, X = L[key], sims[key]
-        Frest = frames_for(lat.rest, lat)
+        side_rest = rest[ti[root]][:3, 0] if lat.breaks else None
+        Frest = frames_for(lat.rest, lat, side_rest)
         names = {(c, k): f'{prefix}_{c:02d}_{k}' for (c, k) in Frest}
         M = {ck: np.array(bones[n].matrix_local) for ck, n in names.items()}
         Mroot = rest[ti[root]]
         quats = {ck: np.zeros((nf, 4)) for ck in names}
         locs = {ck: np.zeros((nf, 3)) for ck in names}
         for f in range(nf):
-            Fcur = frames_for(X[f], lat)
+            Fcur = frames_for(X[f], lat, mats[f, ti[root]][:3, 0] if lat.breaks else None)
             D = {}
             for (c, k) in sorted(names, key=lambda t: t[1]):
                 R = Fcur[(c, k)] @ Frest[(c, k)].T
@@ -317,6 +407,8 @@ def bake(cfg, rig, mats, rest, sims, L):
                     q = -q
                 quats[(c, k)][f] = q
                 locs[(c, k)][f] = B[:3, 3]
+        if key == 'tl' and cfg.tail.sway[0]:
+            tail_sway(cfg, quats, names, nf)
         for ck, n in names.items():
             dp = f'pose.bones["{n}"]'
             for j in range(4):
@@ -333,12 +425,15 @@ def run(cfg):
         return
     rest = np.array([np.array(rig.data.bones[cfg.bone(n)].matrix_local) for n in TRACK])
     motion_key = cfg.key(config.file_key(cfg.path('motion.vmd')), cfg.motion.scale, cfg.motion.arm_angle,
-                         cfg.project.frame_start, cfg.project.frame_end, rest.tolist())
+                         cfg.project.frame_start, cfg.project.frame_end, rest.tolist(),
+                         *([cfg.motion.thumb_rest, cfg.motion.hands_apart]
+                           if cfg.motion.thumb_rest or cfg.motion.hands_apart else []))
     mats = sample_track(cfg, rig, cfg.cache(f'body_track_{motion_key}.npz'), rest)
     caps = build_colliders(cfg, ob, rig)
     boxes = stage_colliders(cfg)
-    sim_key = cfg.key(motion_key, {k: v.tolist() for k, v in lat.items()}, dict(cfg.physics), boxes,
-                      [(c[0], c[1].tolist(), c[2].tolist(), c[3], c[4]) for c in caps])
+    sim_key = cfg.key(motion_key, {k: v.tolist() for k, v in lat.items()}, sim_params(cfg.physics), boxes,
+                      [(c[0], c[1].tolist(), c[2].tolist(), c[3], c[4]) for c in caps],
+                      *([sim_params(cfg.tail)] if cfg.tail.enabled else []))
     path = cfg.cache(f'sim_{sim_key}.npz')
     t0 = time.time()
     if os.path.exists(path) and not cfg.flags.get('resim') and not cfg.flags.get('until'):
@@ -351,5 +446,6 @@ def run(cfg):
     if cfg.flags.get('until'):
         return
     t0 = time.time()
+    sims = smooth_in_time(cfg, mats, sims, L)
     bake(cfg, rig, mats, rest, sims, L)
     print(f'[physics] baked in {time.time() - t0:.0f}s')

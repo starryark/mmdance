@@ -13,10 +13,13 @@ import subprocess
 import bmesh
 import bpy
 import numpy as np
+from mathutils import Vector
 
 
 FINGERS = ['Index', 'Middle', 'Ring', 'Pinky']
 HERE = os.path.dirname(os.path.abspath(__file__))
+MERGE_KEYS = ('select', 'wrist_margin', 'skin_uv')     # only affect the merge, not the generated mesh
+BONE_KEYS = ('phalanges', 'spread')     # act on the rig's finger bones, which are in the key already
 
 
 def ss(e0, e1, x):
@@ -36,12 +39,70 @@ def export_bones(cfg, rig, path):
         json.dump(d, f, indent=1)
 
 
+TIP_EXT = 0.45           # as hand_sdf.py: fingertip = head of the "4" bone + this fraction of its length
+
+
+def finger_bones(cfg, rig):
+    """Re-place the finger joints in the rest pose (before the motion is retargeted).
+
+    Auto-riggers space a finger's three joints evenly and crowd the knuckles. Real and drawn hands
+    have a long first segment (`hands.phalanges`, e.g. 1 : 0.62 : 0.55), and the knuckle row is
+    wider (`hands.spread`). Fingertips stay where they were; each finger keeps its direction."""
+    ratios, spread = cfg.hands.phalanges, cfg.hands.spread
+    if not ratios and spread == 1.0:
+        return
+    B = cfg.bone
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='EDIT')
+    eb = rig.data.edit_bones
+    for side in ('Left', 'Right'):
+        wrist = np.array(eb[B(side + 'Hand')].head)
+        kn = {f: np.array(eb[B(side + 'Hand' + f + '1')].head) for f in FINGERS}
+        along = kn['Middle'] - wrist
+        along /= np.linalg.norm(along)
+        across = kn['Index'] - kn['Pinky']
+        across -= along * (across @ along)
+        across /= np.linalg.norm(across)
+        centre = np.mean([kn[f] @ across for f in FINGERS])
+        for f in FINGERS:
+            bones = [eb[B(side + 'Hand' + f + str(k))] for k in (1, 2, 3, 4)]
+            J = [np.array(b.head) for b in bones]
+            T4 = np.array(bones[3].tail)
+            len4 = np.linalg.norm(T4 - J[3])
+            d4 = (T4 - J[3]) / len4
+            tip = J[3] + TIP_EXT * (T4 - J[3])
+            shift = (spread - 1.0) * ((kn[f] @ across) - centre) * across
+            if ratios:
+                pts = [J[0], J[1], J[2], tip]
+                seg = [np.linalg.norm(pts[k + 1] - pts[k]) for k in range(3)]
+                L = sum(seg)
+
+                def at(s):                      # point at arc length s along the old finger
+                    for k in range(3):
+                        if s <= seg[k] or k == 2:
+                            return pts[k] + (pts[k + 1] - pts[k]) * (s / seg[k])
+                        s -= seg[k]
+                S = sum(ratios)
+                J = [J[0], at(L * ratios[0] / S), at(L * (ratios[0] + ratios[1]) / S), tip - TIP_EXT * len4 * d4]
+            ends = J[1:] + [J[3] + d4 * len4]
+            connected = [b.use_connect for b in bones]
+            for b in bones:                     # a connected head would drag its parent's tail
+                b.use_connect = False
+            for b, h, t in zip(bones, J, ends):
+                b.head = Vector(h + shift)
+                b.tail = Vector(t + shift)
+            for b, c in zip(bones, connected):
+                b.use_connect = c
+    bpy.ops.object.mode_set(mode='OBJECT')
+    print(f'[hands] finger joints re-placed (phalanges {list(ratios)}, spread {spread})')
+
+
 def generate(cfg, rig):
     """hands.npz for this rig + hands config (cached by content)."""
     bones_json = cfg.cache('hand_bones.json')
     export_bones(cfg, rig, bones_json)
     with open(bones_json) as f:
-        key = cfg.key(json.load(f), dict(cfg.hands))
+        key = cfg.key(json.load(f), {k: v for k, v in cfg.hands.items() if k not in MERGE_KEYS + BONE_KEYS})
     out = cfg.cache(f'hands_{key}.npz')
     if not os.path.exists(out):
         cmd = [cfg.tools.python, os.path.join(HERE, 'hand_sdf.py'), cfg['_file'], bones_json, out]
@@ -143,15 +204,31 @@ def skin_material(cfg):
         _flat_color(bpy.data.materials[cfg.hands.line_material], cfg.hands.skin_color)
 
 
+def beyond_wrist(cfg, bones, co, margin):
+    """Rest-pose points past either wrist, along the forearm (minus a margin toward the elbow)."""
+    out = np.zeros(len(co), bool)
+    for side in ('Left', 'Right'):
+        fa = bones[cfg.bone(side + 'ForeArm')]
+        w = np.array(bones[cfg.bone(side + 'Hand')].head_local)
+        d = w - np.array(fa.head_local)
+        d /= np.linalg.norm(d)
+        out |= (co - w) @ d > -margin
+    return out
+
+
 def replace_hands(cfg, body, rig):
     d = dict(np.load(generate(cfg, rig), allow_pickle=True))
     bones = rig.data.bones
     mats = [m.name for m in body.data.materials]
     si = mats.index(cfg.hands.material)
-    # 1) delete the old hands
+    # 1) delete the old hands: every face of the hands' material, or (select = "wrist", for a
+    # material shared with other skin) only those past the wrists
     bm = bmesh.new()
     bm.from_mesh(body.data)
     old = [f for f in bm.faces if f.material_index == si]
+    if cfg.hands.select == 'wrist':
+        past = [bool(beyond_wrist(cfg, bones, np.array([v.co for v in f.verts]), cfg.hands.wrist_margin).all()) for f in old]
+        old = [f for f, p in zip(old, past) if p]
     bmesh.ops.delete(bm, geom=old, context='FACES')
     bm.to_mesh(body.data)
     bm.free()
@@ -165,11 +242,14 @@ def replace_hands(cfg, body, rig):
             o.data.materials.append(m)
         for p in o.data.polygons:
             p.material_index = si
-        o.data.uv_layers.new(name=body.data.uv_layers[0].name)
+        uv = o.data.uv_layers.new(name=body.data.uv_layers[0].name)
+        if cfg.hands.skin_uv:          # one skin-coloured texel of the shared texture
+            uv.data.foreach_set('uv', np.tile(np.array(cfg.hands.skin_uv, np.float32), len(uv.data)))
     for o in bpy.context.view_layer.objects:
         o.select_set(o in objs or o is body)
     bpy.context.view_layer.objects.active = body
     nv = sum(len(o.data.vertices) for o in objs)
     bpy.ops.object.join()
-    skin_material(cfg)
-    print(f'[hands] replaced the hands: {nv} new vertices')
+    if not cfg.hands.skin_uv:
+        skin_material(cfg)
+    print(f'[hands] replaced the hands ({len(old)} faces): {nv} new vertices')

@@ -179,6 +179,90 @@ def eye_state(img, e, p, smile=False, thick=1.0):
     return np.clip(out, 0, 255).astype(np.uint8)
 
 
+LIDS = 'sample'          # 'sample' (lid = per-column skin median) or 'inpaint' (see eye_state_inpaint)
+INPAINT_HAIR = (25, 80, 160)    # hair strands kept over the lid: blue > red + a, blue > b, red < c
+INPAINT_SKIN = (190, 6, 80)     # skin the lid is filled from: brightest channel > a, a < red - blue < c
+
+
+def eye_state_inpaint(img, e, p, smile=False, thick=1.0):
+    """Eye states drawn over an eye-less copy of the painting (lids = 'inpaint').
+
+    The whole eye (lash band to lower lid) is first inpainted away from the skin round it, so a
+    lowered lid has the painting's own soft gradient instead of a flat patch, and hair strands
+    drawn across the lid (in front of it) are kept. Then: the eye opening below the lowered lash
+    shows the original eye; the lash band is resampled at its new height (thinner as it closes)
+    with a faint crease shadow above it; closed, it lies along a gentle downward arc near the lower
+    lid; for the smile it bends up into a ^ arch."""
+    H, W = img.shape[:2]
+    f = img.astype(np.float32)
+    xs = np.arange(W)
+    lt, lb, lo = curve(e['lash_top'], xs), curve(e['lash_bot'], xs), curve(e['lower'], xs)
+    cols = np.nonzero(~np.isnan(lt) & ~np.isnan(lb) & ~np.isnan(lo))[0]
+    x0, x1 = cols.min(), cols.max()
+    # the eye region, hair strands above the eye opening excluded (they stay in front of the lid)
+    region = np.zeros((H, W), np.uint8)
+    for x in cols:
+        region[int(lt[x]) - 4:int(np.ceil(lo[x])) + 6, x] = 1
+    region[:, max(x0 - 6, 0):x0] = region[:, x0:x0 + 1]
+    region[:, x1 + 1:x1 + 7] = region[:, x1:x1 + 1]
+    R, B = f[..., 0], f[..., 2]
+    hb, hmin, hmax = INPAINT_HAIR
+    hairish = (B > R + hb) & (B > hmin) & (R < hmax)
+    above_open = np.zeros((H, W), bool)
+    for x in cols:
+        above_open[:int(lt[x]) + 2, x] = True
+    keep_hair = hairish & above_open & (region > 0)
+    hole = (region > 0) & ~keep_hair
+    hole = cv2.dilate(hole.astype(np.uint8), np.ones((3, 3), np.uint8)) > 0
+    # fill from skin only (normalised convolution over skin-coloured pixels, coarse to fine), so
+    # the lash, lid line and hair edges round the eye never streak into the lid
+    sv, rb0, rb1 = INPAINT_SKIN
+    skin = ~hole & (f.max(2) > sv) & (R - B > rb0) & (R - B < rb1) & ~hairish
+    base = f.copy()
+    filled = np.zeros((H, W), bool)
+    for sigma in (5, 10, 20, 40):
+        acc = cv2.GaussianBlur(f * skin[..., None], (0, 0), sigma)
+        wsum = cv2.GaussianBlur(skin.astype(np.float32), (0, 0), sigma)
+        ok = hole & ~filled & (wsum > 0.08)
+        base[ok] = acc[ok] / wsum[ok][:, None]
+        filled |= ok
+    base[hole & ~filled] = np.median(f[skin], axis=0)
+    base = np.where(hole[..., None], cv2.GaussianBlur(base, (0, 0), 2.0), base)
+    base[keep_hair] = f[keep_hair]
+    out = f.copy()
+    span = np.clip(np.minimum(xs - x0, x1 - xs) / 24.0, 0, 1)
+    span = span * span * (3 - 2 * span)
+    sx = (xs - x0) / max(x1 - x0, 1)
+    for x in cols:
+        th = lb[x] - lt[x]
+        open_h = max(lo[x] - lb[x], 0.0)
+        if smile:          # ^ arch: the lash's lower edge rises in the middle
+            target = lb[x] + open_h * (0.62 - 0.42 * math.sin(math.pi * sx[x])) * span[x]
+        else:
+            arc = 0.08 * math.sin(math.pi * sx[x]) if p >= 0.999 else 0.0     # closed: a gentle downward arc
+            target = lb[x] + (p * open_h * (0.92 + arc)) * span[x]
+        th_new = th * (1 - (1 - thick) * span[x])
+        new_top = target - th_new
+        y_a = int(np.floor(lt[x])) - 4
+        y_b = int(np.ceil(lo[x])) + 6
+        for y in range(y_a, y_b):
+            if y < new_top:                       # lid (eye-less painting), a soft crease shadow above the lash
+                d = new_top - y
+                c = base[y, x] * (1.0 - 0.07 * math.exp(-d / 4.0) * min(p * 3, 1.0))
+            elif y <= target:                     # the lash band, resampled from its rest position
+                t = (y - new_top) / max(th_new, 1e-3)
+                sy = lt[x] + t * th
+                i0 = int(np.floor(sy))
+                fr = sy - i0
+                c = f[i0, x] * (1 - fr) + f[min(i0 + 1, H - 1), x] * fr
+            elif not smile and p < 0.999:         # the eye opening below the lowered lid: the original eye
+                c = f[y, x]
+            else:                                 # closed / smile: skin below the lash line
+                c = base[y, x]
+            out[y, x] = c * span[x] + f[y, x] * (1 - span[x])
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
 def diff_alpha(new, orig, thr=6, grow=6, blur=5.0):
     d = np.abs(new.astype(int) - orig.astype(int)).sum(2)
     m = (d > thr).astype(np.uint8) * 255
@@ -315,8 +399,11 @@ def pack(tiles, order, cols):
 
 
 def setup(cfg):
-    global SKIN_ABOVE, CHEEK_BELOW, MOUTH_C, MOUTH_RECT, HALO_BOXES, CORNER_BOX, CORNER_EYE
+    global SKIN_ABOVE, CHEEK_BELOW, MOUTH_C, MOUTH_RECT, HALO_BOXES, CORNER_BOX, CORNER_EYE, LIDS
+    global INPAINT_HAIR, INPAINT_SKIN
     fa = cfg.face.atlas
+    LIDS = fa.lids
+    INPAINT_HAIR, INPAINT_SKIN = tuple(fa.inpaint_hair), tuple(fa.inpaint_skin)
     for k in ('L', 'R'):
         e = fa.eyes[k]
         EYES[k] = dict(lash_top=[tuple(p) for p in e.lash_top], lash_bot=[tuple(p) for p in e.lash_bot],
@@ -356,7 +443,7 @@ def main(cfg_path, src, key, preview=None):
         for name, kw in states:
             if kw is None:
                 continue
-            new = eye_state(img, e, **kw)
+            new = (eye_state_inpaint if LIDS == 'inpaint' else eye_state)(img, e, **kw)
             eye_tiles[f'{key}_{name}'] = to_tile(new, img, rect)
     Hm = max(t.shape[0] for t in eye_tiles.values())
     Wm = max(t.shape[1] for t in eye_tiles.values())

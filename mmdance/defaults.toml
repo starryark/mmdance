@@ -39,6 +39,13 @@ vmd = ""                       # the dance (required)
 scale = 0.0                    # metres per MMD unit; 0 = auto: leg length / 9.42 (a standard MMD leg)
 arm_angle = 37.0               # MMD's rest pose has the arms this many degrees below horizontal
 center_height = 8.0            # height of the MMD センター pivot, MMD units
+thumb_rest = []                # [along, across, palm]: a standard MMD hand's rest thumb direction in the
+                               # hand's frame (left hand). MMD thumb keys assume it; set it when the rig's
+                               # thumbs rest flatter (e.g. [0.838, 0.395, 0.377], measured on an MMD model).
+                               # [] = use the rig's thumbs as they are
+hands_apart = []               # [{start, end, ramp, gap}]: spread the wrists by `gap` m (arm IK) over a
+                               # frame range, for hands that should touch but cross (larger hands than
+                               # the motion was made for)
 
 [camera]
 vmd = ""                       # MMD camera motion; "" = a static front camera
@@ -82,6 +89,12 @@ shader_node = ""               # node receiving the face colour; "" = auto
 shader_input = "Base Color"
 uv_node = ""                   # "" = auto (an existing UV Map node, else one is added)
 mouth_min_hold = 2             # frames each mouth shape is held at least (no lip-sync flicker)
+lids = "sample"                # eye states: "sample" (lid filled with skin sampled per column) or
+                               # "inpaint" (the eye inpainted away first: soft lids, hair strands kept)
+inpaint_hair = [25, 80, 160]   # lids = "inpaint": hair strands crossing the eye, kept in front of the lid
+                               # (RGB 0-255: blue > red + a, blue > b, red < c; suits blue/violet hair)
+inpaint_skin = [190, 6, 80]    # lids = "inpaint": skin the lid is filled from (brightest channel > a,
+                               # a < red - blue < c; suits light skin)
 clean = false                  # write a cleaned copy of the painting (halo_boxes / corner_box)
 halo_boxes = []                # [[x0, y0, x1, y1], ...] grey projection halos to inpaint (texture px)
 corner_box = []                # [x0, y0, x1, y1] block at an eye corner repainted as sclera/skin
@@ -111,6 +124,17 @@ rows_z = [0.86, 0.78, 0.70, 0.62, 0.54, 0.46, 0.38]   # joint heights, root -> t
 axis = [0.0, -0.03]            # x, y of the vertical axis the columns are laid round
 root_band = 0.04               # hair above rows_z[0] + this rides the head bone only
 min_count = 6                  # vertices a bin needs to extend a chain
+adopt_head_islands = false     # islands of another material that follow the head (curls the
+                               # auto-rigger gave the cloth material) join the hair chains
+mode = "curtain"               # "curtain": columns round the head (rows_z, phi_range, columns);
+                               # "locks": one chain per hair lock (keys below), unlinked between locks
+split_z = 0.68                 # locks: below this height the separate pieces of the hair mesh are its locks
+min_lock = 30                  # locks: vertices a piece needs to be a lock (smaller scraps follow the nearest)
+lock_width = 16.0              # locks: degrees of arc per chain on a wide lock (a sheet of fused curls)
+root_z = 0.78                  # locks: height of the first (pinned) joint of each chain
+joint_step = 0.045             # locks: spacing of the joints down each chain (m)
+max_joints = 9
+smooth = 4                     # locks: smoothing passes of the weights over the hair surface
 
 [skirt]                        # a ring of bone chains on the skirt's inner surface, rooted on the hips
 enabled = false
@@ -123,16 +147,53 @@ axis = [0.0, -0.02]
 [legs]                         # finding the legs as their own mesh island (kept out of the skirt)
 min_top = 0.5                  # the island reaches the floor and rises above this
 max_abs_x = 0.12
+attach = 0.0                   # islands lying within this distance of the legs (shoe buckles, straps)
+                               # belong to them, not the skirt (m; 0 = off)
 
 [overskirt]                    # a second, outer gown layer (open-front panels) on its own chains
 enabled = false
 ztop = 0.60                    # only fabric below this is tested for a layer underneath
 min_gap = 0.006                # a panel joint always sits this far outside the skirt
 min_vertices = 25              # vertices a column needs to get a panel chain
+phi_range = []                 # [a0, a1] degrees (0 = front, + = character's left): only this arc
+                               # may be the outer layer, e.g. an apron; [] = anywhere
+zbottom = 0.0                  # with phi_range: and only fabric above this height (bows on the skirt
+                               # below an apron stay on the skirt)
+
+[tail]                         # a tail on its own bone chain, rooted on the hips (its own mesh island)
+enabled = false
+seed = [0.0, 0.2, 0.3]         # a point on or near the tail: the mesh island nearest to it is the tail
+rows = 9                       # joints from the root (the end nearest the hips) to the tip
+width = 0.03                   # the two side-by-side chains sit this far apart (gives the bones a twist)
+pinned_rows = 2                # joints carried rigidly by the hips (the part inside the body/skirt)
+sway = [0.0, 60.0, 4.0]        # [degrees at the tip, period, lag per joint (frames)]: a slow swish
+                               # travelling down the tail on top of its physics; 0 degrees = off
+
+[tail.physics]
+relative = true
+smooth_frames = 0.0
+elastic = [1.0, 1.0, 0.45, 0.30, 0.22, 0.17, 0.14, 0.12, 0.10]
+stiff_lim = [0.0, 0.0, 0.35, 0.45, 0.55, 0.6, 0.65, 0.7, 0.7]
+lying_relax = 0.6
+tether = [0.0, 0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35]
+drag = 0.03
+gravity_comp = 1.0
+goal_lying = 1.0
+ring_mode = "both"
+ring_stiff = 1.0
+bend_chain = 0.2
+bend_min = 0.95
+edge_collide = true
+outer_rule = false
 
 [hands]                        # rebuild fused hands from the finger bones (needs scikit-image)
 enabled = false
-material = ""                  # material slot used ONLY by the hands (its faces are replaced)
+material = ""                  # material slot of the hands (its faces are replaced, see `select`)
+select = "material"            # "material": every face of `material` is the old hands; "wrist": only
+                               # those past the wrists (a material shared with neck/chest skin)
+wrist_margin = 0.004           # select = "wrist": how far before the wrist joint the hands start (m)
+skin_uv = []                   # [u, v]: keep the material's texture and give the new hands this
+                               # texel (a clean skin spot); [] = flat skin_color on the material
 line_material = ""             # matching outline material, if any
 skin_color = [0.937, 0.80, 0.74]   # linear RGB for the new hands
 scale = 0.0                    # size of the hand model; 0 = auto from the hand bones
@@ -140,12 +201,18 @@ palm_plane_z = 0.0             # rest-pose palm mid-plane height; 0 = auto (wris
 voxel = 0.00038
 decimate = 0.07
 outline_weight = 0.55          # weight in the outline group for the new hands
+phalanges = []                 # [proximal, middle, distal]: re-place each finger's joints to these length
+                               # ratios, tip kept (auto-riggers space them evenly, so fingers bend in the
+                               # wrong places), e.g. [1.0, 0.62, 0.55] as drawn hands; [] = the rig's joints
+spread = 1.0                   # widen the knuckle row by this factor (auto-riggers crowd the fingers)
 
 [fixes]                        # optional weight repairs for auto-rigged meshes
 nape_seam = false              # hair/cloth seam at the nape: neck/head weights only
 waist_z = []                   # [z0, z1]: move thigh weights to the hips between these heights
 cross_side_legs_below = 0.0    # strip opposite-side leg weights below this height (0 = off)
 rigid_boots = false            # partition the legs: thigh / shin / foot / toe with short blends
+rigid_boots_hips = false       # with rigid_boots: a leg mesh reaching the pelvis blends into the hips there
+unweighted = true              # vertices with no deform weight take their nearest neighbour's weights
 
 [physics]
 preroll = 90                   # frames held on the first pose before the dance (cloth settles)
@@ -155,6 +222,8 @@ boxes = []                     # extra box colliders [x0, x1, y0, y1, top] (floo
 
 [physics.skirt]
 relative = true
+smooth_frames = 0.0            # Gaussian sigma (frames) of a low-pass on the result, in the hips' frame:
+                               # takes out contact jitter, keeps the swing (0 = off; no resim needed)
 elastic = [1.0, 0.30, 0.16, 0.10, 0.08, 0.065, 0.055, 0.05, 0.045]
 stiff_lim = [0.0, 0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.2]
 lying_relax = 0.8
@@ -176,6 +245,8 @@ radius = 0.012
 
 [physics.overskirt]
 relative = true
+smooth_frames = 0.0            # Gaussian sigma (frames) of a low-pass on the result, in the hips' frame:
+                               # takes out contact jitter, keeps the swing (0 = off; no resim needed)
 elastic = [1.0, 0.28, 0.14, 0.09, 0.07, 0.06, 0.05, 0.045, 0.04]
 stiff_lim = [0.0, 0.6, 0.72, 0.85, 0.95, 1.05, 1.12, 1.18, 1.22]
 lying_relax = 0.8
@@ -196,6 +267,7 @@ radius = 0.008
 
 [physics.hair]
 relative = false
+smooth_frames = 0.0
 goal = [1.0, 0.14, 0.09, 0.06, 0.045, 0.035, 0.03]
 tether = [0.0, 0.06, 0.12, 0.18, 0.25, 0.32, 0.38]
 drag = 0.015
@@ -208,7 +280,8 @@ max_push = 0.05
 
 [stage]
 builder = "default"            # "default" (floor + backdrop) or a project module "room.py"
-                               # defining build(collection, cfg) and optionally colliders(cfg)
+                               # defining build(collection, cfg) and optionally colliders(cfg) and
+                               # finish(collection, cfg) (run last: the project's lights, look, camera)
 world = ""                     # world datablock to use; "" = the scene's world (or a new one)
 world_color = [1.0, 0.90, 0.80]
 world_strength = 0.17
@@ -228,7 +301,8 @@ engine = "BLENDER_EEVEE"
 samples = 48
 raytracing = true
 filter_size = 1.1
-view_transform = "Standard"
+view_transform = "Standard"    # toon colours as painted; AgX washes them out ("Khronos PBR Neutral"
+                               # keeps them and rolls off a bright set's highlights)
 png_compression = 15
 
 [encode]

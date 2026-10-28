@@ -58,7 +58,10 @@ if __name__ == '__main__':
         mf = [m[1] for m in v['morphs']]
         print(' morph keys', len(v['morphs']), 'frames', (min(mf), max(mf)) if mf else None)
         for k, c in mc.most_common():
-            print('   ', repr(k), c)
+            # a capture-made facial track can be wrong (a squint read as closed eyes): show the values
+            w = [m[2] for m in v['morphs'] if m[0] == k]
+            print('   ', repr(k), c, 'weight %.2f..%.2f, above 0.5 on %d%% of keys'
+                  % (min(w), max(w), round(100 * sum(x > 0.5 for x in w) / len(w))))
         if v['cams']:
             cf = [c[0] for c in v['cams']]
             print(' cam keys', len(v['cams']), 'frames', min(cf), max(cf))

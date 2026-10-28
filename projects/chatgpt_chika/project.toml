@@ -1,0 +1,198 @@
+# ChatGPT (a Tripo-generated, toon-shaded white dragon woman, 1 m tall, Mixamo rig: horns, bat
+# wings, a long tail, bell sleeves hanging from the forearms and a floor-length gown) dancing
+# akomni's MMD motion チカっとチカ千花っ♡ (niconico sm34597101), with its camera, facial track and
+# song, in the student-council room of the deepseek_chika example. See README.md.
+#
+# The character is the *optimized* model (AI_girls/_pipeline/optimize): the polished file with its
+# parts given their own materials (dress, hair, sleeves, wings, tail), the tail cut off as its own
+# mesh island, wing and sleeve bones, and Tripo's smeared weights replaced.
+#
+# None of the assets are in this repository. Put them here (or point to them from a
+# project.local.toml next to this file):
+#   character/ChatGPT_optimized.blend   the rigged character (with its textures/ folder)
+#   source/motion.vmd, camera.vmd, facial.vmd, song.wav   from the MMD motion package
+
+[project]
+name = "ChatGPTChika"
+fps = 30
+frame_start = 0
+frame_end = 2755
+
+[paths]
+character = "character/ChatGPT_optimized.blend"
+blend = "build/ChatGPT_ChikaDance.blend"
+frames = "render/frames/chika_"
+video = "build/ChatGPT_ChikaDance.mp4"
+
+[character]
+rig = "ChatGPT_Rig"
+body = "ChatGPT_Body"
+
+[motion]
+vmd = "source/motion.vmd"
+# Tripo's thumbs rest almost along the index finger; MMD thumb keys assume a standard MMD hand
+# (measured on an MMD model, as in deepseek_chika).
+thumb_rest = [0.838, 0.395, 0.377]
+
+[camera]
+vmd = "source/camera.vmd"
+
+# As in deepseek_chika: the MMD camera's opening shot would sit inside the long gown, so she gets
+# a high three-quarter view lying on the desk, descending to her side for the cut at frame 110.
+[[camera.shots]]
+name = "Intro"
+start = 0
+end = 110
+lens = 40
+fstop = 2.8
+keys = [[0, [-0.58, -1.00, 1.06], [0.04, -0.09, 0.41]],
+        [55, [-0.56, -1.16, 0.88], [0.03, -0.09, 0.42]],
+        [109, [-0.30, -1.28, 0.74], [0.04, -0.09, 0.44]]]
+
+[audio]
+file = "source/song.wav"
+
+[face]
+mode = "atlas"
+vmd = "source/facial.vmd"
+
+# Guide curves measured on ChatGPT_Face_D.png (2048 px), left to right. L is the image-left eye
+# (her right eye): outer corner on the left. The lids are inpainted from the painting itself (soft
+# lids; on the model's first face texture bang strands also crossed both eyes, until its face
+# rebuild took them off the skin). Her eyes are tall with a deep lower lid: `lower` sits 8 px
+# below the painted lid line, so a closed eye covers that line and shows the lash line only.
+[face.atlas]
+material = "ChatGPT_Face"
+lids = "inpaint"
+mouth_center = [995, 1678]
+mouth_rect = [845, 1585, 1145, 1800]
+
+[face.atlas.eyes.L]
+lash_top = [[518, 1196], [545, 1174], [570, 1162], [595, 1154], [620, 1146], [645, 1150], [670, 1155], [695, 1156], [720, 1160], [745, 1164], [760, 1170], [770, 1168]]
+lash_bot = [[518, 1238], [545, 1216], [570, 1200], [595, 1186], [620, 1172], [645, 1172], [670, 1172], [695, 1172], [720, 1175], [745, 1180], [760, 1188], [770, 1190]]
+lower = [[518, 1252], [545, 1280], [570, 1304], [595, 1322], [620, 1336], [645, 1334], [670, 1330], [695, 1322], [720, 1302], [745, 1276], [760, 1196], [770, 1198]]
+
+[face.atlas.eyes.R]
+lash_top = [[1196, 1118], [1203, 1114], [1212, 1110], [1230, 1105], [1255, 1099], [1280, 1095], [1305, 1091], [1330, 1087], [1355, 1083], [1380, 1078], [1405, 1075], [1430, 1072], [1455, 1071], [1480, 1073], [1500, 1080]]
+lash_bot = [[1196, 1168], [1203, 1166], [1212, 1158], [1230, 1150], [1255, 1142], [1280, 1137], [1305, 1133], [1330, 1132], [1355, 1131], [1380, 1131], [1405, 1130], [1430, 1127], [1455, 1125], [1480, 1125], [1500, 1134]]
+lower = [[1196, 1174], [1203, 1176], [1212, 1240], [1230, 1272], [1255, 1300], [1280, 1312], [1305, 1317], [1330, 1319], [1355, 1321], [1380, 1321], [1405, 1319], [1430, 1309], [1455, 1272], [1480, 1198], [1500, 1140]]
+
+[hair]
+enabled = true
+material = "ChatGPT_Hair"
+rip_below = 0.78
+# Her long wavy hair falls apart into many locks and curls below the shoulders: one chain per
+# lock, so each swings on its own (as deepseek_chika).
+mode = "locks"
+split_z = 0.70
+root_z = 0.80
+joint_step = 0.045
+lock_width = 16.0
+min_lock = 45                               # thin strands lying on the dress's back (31-40 vertices,
+                                            # close to the axis) follow the nearest lock
+
+[physics.hair]
+relative = true
+elastic = [1.0, 0.55, 0.30, 0.18, 0.12, 0.09, 0.075, 0.065, 0.06]
+stiff_lim = [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 0.9, 1.0, 1.1]
+lying_relax = 0.6
+tether = [0.0, 0.03, 0.07, 0.12, 0.17, 0.22, 0.27, 0.32, 0.37]
+drag = 0.035
+gravity_comp = 0.9
+ring_mode = "range"
+ring_min = 0.7
+ring_max = 1.35
+ring_stiff = 0.25
+bend_chain = 0.15
+bend_min = 0.9
+smooth_frames = 0.8
+
+# The gown: floor length with a short train and ruffled front edges. Only the dress material is
+# skirt; the sleeves, wings and tail hanging beside it have their own materials.
+[skirt]
+enabled = true
+materials = ["ChatGPT_Cloth"]
+top = 0.64
+rows_z = [0.62, 0.548, 0.476, 0.404, 0.332, 0.26, 0.188, 0.116, 0.044]
+
+[physics.skirt]
+elastic = [1.0, 0.24, 0.12, 0.075, 0.055, 0.045, 0.04, 0.035, 0.03]
+ring_min = 0.92
+ring_max = 1.15
+ring_stiff = [0.0, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.85, 0.85]
+bend_chain = 0.35
+bend_ring = 0.25
+drag = 0.035
+absorb = 0.95
+smooth_frames = 1.0
+
+[legs]
+min_top = 0.35
+attach = 0.01                               # anklets and shoe ornaments are separate islands
+
+# The tail is its own mesh island (cut off at its root by the model prep).
+[tail]
+enabled = true
+seed = [0.27, 0.20, 0.25]
+sway = [6.0, 60.0, 5.0]                     # a slow swish down the tail, two beats long (90 bpm)
+
+[tail.physics]                              # muscular: firm at the root, free toward the tip
+elastic = [1.0, 1.0, 0.45, 0.28, 0.18, 0.13, 0.10, 0.085, 0.075]
+stiff_lim = [0.0, 0.0, 0.3, 0.42, 0.55, 0.65, 0.72, 0.8, 0.85]
+lying_relax = 0.25
+drag = 0.04
+smooth_frames = 0.8
+
+[hands]
+enabled = true
+material = "ChatGPT_Skin"
+select = "wrist"                            # the skin material also covers her arms, legs and neck
+skin_uv = [0.8302, 0.5378]                  # a clean spot of upper-arm skin in the body texture
+
+[fixes]
+nape_seam = true
+cross_side_legs_below = 0.5
+rigid_boots = true
+rigid_boots_hips = true                     # her leg mesh reaches up to the pelvis
+
+[stage]
+builder = "room.py"
+world = "AIG_World"
+sun = "AIG_Sun"                             # direction kept: the face shading driver reads it
+# Furniture placed as in deepseek_chika (motion scale 0.0503 here vs 0.0499 there).
+desk = [-0.22, 0.62, -0.364, 0.196, 0.425]  # x0, x1, y0, y1, top
+sofa = [0.776, 1.896, -1.181, -0.761, 0.251]  # x0, x1, front edge, seat back, seat top
+# single-layer fabric: the inside in a darker shade of the print
+lining = { ChatGPT_Cloth = [0.84, 0.82, 0.92], ChatGPT_Sleeve = [0.84, 0.82, 0.92], ChatGPT_Wing = [0.80, 0.78, 0.90] }
+
+# The bell sleeves on their bone chains (sleeves.py): soft cloth that hangs from the forearm
+# whatever the arm does. The joint springs only keep a little memory of the cut (at 0.1 a joint
+# would beat gravity about 9 to 1 and the sleeve would turn with the forearm like a board), the
+# angle limits are wide and the tether long, so gravity hangs the fabric once the arm turns.
+# Full gravity always (the rest shape already hangs straight down). Linked across the columns,
+# kept out of the body, the other arm and the skirt.
+[stage.sleeves]
+radius = 0.018
+relative = true
+elastic = [1.0, 0.012, 0.008, 0.006, 0.005, 0.005, 0.005]
+stiff_lim = [0.0, 1.5, 1.8, 2.0, 2.0, 2.0, 2.0]
+lying_relax = 0.0
+tether = [0.0, 0.12, 0.24, 0.36, 0.48, 0.60, 0.70]
+drag = 0.05
+gravity_comp = 0.0
+ring_mode = "range"
+ring_min = 0.6
+ring_max = 1.2
+ring_stiff = 0.4
+bend_chain = 0.2
+bend_min = 0.9
+edge_collide = true
+absorb = 0.9
+smooth_frames = 0.8
+
+# The wings (wings.py): a slow beat [open, lift (deg), period (frames), outer-wing lag (frames)]
+# and a sweep back against chest turns (deg per deg/frame, capped).
+[stage.wings]
+beat = [5.0, 4.0, 60.0, 6.0]
+drag = 1.2
+drag_max = 14.0

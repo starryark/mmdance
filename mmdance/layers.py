@@ -12,7 +12,8 @@ from mathutils.bvhtree import BVHTree
 AXIS_XY = (0.0, -0.02)
 
 
-def classify_layers(ob, skirt_idx, ztop=0.60, axis_xy=AXIS_XY):
+def classify_layers(ob, skirt_idx, ztop=0.60, axis_xy=AXIS_XY, allow=None):
+    """allow: optional per-vertex mask of where an outer layer may be (e.g. only the apron)."""
     me = ob.data
     skirt = set(int(i) for i in skirt_idx)
     bm = bmesh.new()
@@ -36,7 +37,7 @@ def classify_layers(ob, skirt_idx, ztop=0.60, axis_xy=AXIS_XY):
     outer = np.zeros(len(me.vertices), np.float32)
     for vi in skirt:
         co = bm.verts[vi].co
-        if co.z > ztop:
+        if co.z > ztop or (allow is not None and not allow[vi]):
             continue
         d = Vector((axis_xy[0] - co.x, axis_xy[1] - co.y, 0.0))
         if d.length < 1e-4:

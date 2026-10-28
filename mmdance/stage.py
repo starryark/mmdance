@@ -2,7 +2,8 @@
 
 `stage.builder = "default"` makes a floor under a flat backdrop. A project can instead point it
 at its own module (e.g. "room.py") defining build(collection, cfg), and optionally colliders(cfg)
-returning box colliders (x0, x1, y0, y1, top) for the cloth and hair.
+returning box colliders (x0, x1, y0, y1, top) for the cloth and hair, and finish(collection, cfg),
+called last to adjust the lights, shading and render settings for the project's look.
 """
 import math
 
@@ -143,3 +144,5 @@ def run(cfg):
     if cfg.stage.glow:
         glow(cfg)
     render_settings(cfg)
+    if mod is not None and hasattr(mod, 'finish'):
+        mod.finish(coll, cfg)

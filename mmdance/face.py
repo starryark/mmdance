@@ -200,10 +200,18 @@ def source_texture(cfg, mat):
     return bpy.path.abspath(base.image.filepath, library=base.image.library)
 
 
+# options added later: hashed only when set, so older atlases keep their key
+NEW_KEYS = {'lids': 'sample', 'inpaint_hair': [25, 80, 160], 'inpaint_skin': [190, 6, 80]}
+
+
+def atlas_key(fa):
+    return {k: v for k, v in fa.items() if not (k in NEW_KEYS and v == NEW_KEYS[k])}
+
+
 def ensure_atlas(cfg, mat):
     """Build the atlases with face_atlas.py (system Python) unless they match the config already."""
     src = source_texture(cfg, mat)
-    key = cfg.key(config.file_key(src), dict(cfg.face.atlas))
+    key = cfg.key(config.file_key(src), atlas_key(cfg.face.atlas))
     meta_path = cfg.textures('face_atlas.json')
     if os.path.exists(meta_path):
         with open(meta_path) as f:

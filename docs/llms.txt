@@ -5,11 +5,11 @@
 Key facts:
 - Input: a Blender file with a Mixamo-style humanoid rig (T-pose, Z up, facing -Y, metres) and VMD files. It does not import PMX/PMD models (use MMD Tools or SekaiBlender for those).
 - Retargeting: MMD Tools evaluates the VMD on a proxy MMD skeleton built at the rig's joints; world-space rotations are transferred relative to MMD's A-pose (arms 37° down); legs use an analytic two-bone IK to MMD's 足ＩＫ / つま先ＩＫ targets.
-- Physics: bone chains laid through the mesh, a numpy position-based solver (jointed chains with angular limits like MMD rigid-body skirts / DynamicBone, capsule and box colliders, inelastic contacts), baked to keyframes.
-- Face: VMD morphs → shape keys, or painted-face expression atlases (Live2D-style lash slide) for image-to-3D characters.
-- Repairs for auto-rigged meshes: rebuilt hands from finger bones, hair/cloth seam rip, rigid boot weights, cross-side leg weights.
+- Physics: bone chains laid through the mesh (skirt, an outer gown layer or apron, long hair as a curtain or one chain per lock, a tail), a numpy position-based solver (jointed chains with angular limits like MMD rigid-body skirts / DynamicBone, capsule and box colliders, inelastic contacts, an optional low-pass), baked to keyframes.
+- Face: VMD morphs → shape keys, or painted-face expression atlases (Live2D-style lash slide) for image-to-3D characters. A painted face on a sculpted head is better rebuilt as geometry (mouth opening with inside, teeth and tongue; eyes in layers; shape keys keyed from the facial track): project code in projects/claude_chika_v3/face_rebuild.py.
+- Repairs for auto-rigged meshes: rebuilt hands from finger bones (finger joints moved to drawn-hand proportions, thumbs to an MMD hand's rest), hair/cloth seam rip, hair curls with the cloth material, rigid boot weights, cross-side leg weights, unweighted vertices.
 - One project = one project.toml merged over mmdance/defaults.toml; CLI `python -m mmdance new|inspect|vmd|build|stills|render|encode|qa`.
-- Requirements: Blender 5.2+, MMD Tools extension, Python 3.11+ with numpy/scipy/opencv-python/scikit-image/pillow/matplotlib, ffmpeg. Tested on Windows 11 with one character; no assets are distributed.
+- Requirements: Blender 5.2+, MMD Tools extension, Python 3.11+ with numpy/scipy/opencv-python/scikit-image/pillow/matplotlib, ffmpeg. Built on Windows 11; rendered on Windows and on a Linux cloud GPU. Used with three Tripo characters and two dances; no assets are distributed.
 
 ## Docs
 - [README](https://raw.githubusercontent.com/starryark/mmdance/main/README.md): overview, requirements, quick start, FAQ, related work
@@ -31,8 +31,12 @@ Key facts:
 - [mmdance/vmd.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/vmd.py): minimal VMD parser
 
 ## Examples
-- [Demo video](https://github.com/starryark/mmdance#demo): the 94 s render of the example production (Tripo character, layered ball gown, MMD camera and song), with stills of the desk opening, skirt physics on a kick and a painted-face smile ([1](https://liuyangyi.com/mmdance/media/claude-chika-desk.jpg), [2](https://liuyangyi.com/mmdance/media/claude-chika-kick.jpg), [3](https://liuyangyi.com/mmdance/media/claude-chika-smile.jpg))
+- [Demo video](https://github.com/starryark/mmdance#demo): DreamWings, two Tripo characters (Claude, then ChatGPT) taking turns in a 15 s motion-capture meme on an appended lobby set, filmed by a camera solved from the reference video, with motion blur; below it, the 94 s render of the first production (Tripo character, layered ball gown, MMD camera and song), with stills of the desk opening, skirt physics on a kick and a painted-face smile ([1](https://liuyangyi.com/mmdance/media/claude-chika-desk.jpg), [2](https://liuyangyi.com/mmdance/media/claude-chika-kick.jpg), [3](https://liuyangyi.com/mmdance/media/claude-chika-smile.jpg))
 - [projects/claude_chika](https://raw.githubusercontent.com/starryark/mmdance/main/projects/claude_chika/README.md): the full production the pipeline was built for (a Tripo character in a layered ball gown dancing a 94 s MMD motion), its config and limits
+- [projects/deepseek_chika](https://raw.githubusercontent.com/starryark/mmdance/main/projects/deepseek_chika/README.md): a second character on the same dance (apron, tail, hands sharing the neck's material, sunlight through the windows)
+- [projects/chatgpt_chika](https://raw.githubusercontent.com/starryark/mmdance/main/projects/chatgpt_chika/README.md): a third character (wings, tail, bell sleeves simulated by project code) and the model repairs it needed
+- [projects/claude_chika_v3](https://raw.githubusercontent.com/starryark/mmdance/main/projects/claude_chika_v3/README.md): the example redone, with hair per lock and a painted face rebuilt as geometry (mouth, layered eyes, shape keys)
+- [projects/dreamwings](https://raw.githubusercontent.com/starryark/mmdance/main/projects/dreamwings/README.md): a second dance (a motion-capture meme) with two characters taking turns, a set appended from another .blend and a camera solved from a reference video
 - [projects/template/project.toml](https://raw.githubusercontent.com/starryark/mmdance/main/projects/template/project.toml): starting config for a new project
 
 ## Optional

@@ -42,7 +42,9 @@ def cmd_build(args):
     char = cfg.path('paths.character')
     if not os.path.exists(char):
         sys.exit(f'paths.character not found: {char}')
-    run([blender(cfg), '-b', char, '--python', os.path.join(ROOT, 'build.py'), '--', os.path.abspath(args[0])] + args[1:])
+    # --python-exit-code: a Python error in a stage fails the command instead of exiting 0
+    run([blender(cfg), '-b', char, '--python-exit-code', '1', '--python', os.path.join(ROOT, 'build.py'), '--',
+         os.path.abspath(args[0])] + args[1:])
 
 
 def cmd_render(args):
