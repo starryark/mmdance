@@ -48,8 +48,8 @@ did not change.
   them silently compares old frames.
 - The same file renders the same twice (±1). A set appended from another .blend (DreamWings) can
   still flip a few hundred pixels at its shadow and specular edges (up to ~11/255) when the file
-  is only written differently (packed, objects created in another order). Judge those scenes by
-  the character, which must match within ±1.
+  is only written differently (seen after packing it, and apparently after creating its objects
+  in another order). Judge those scenes by the character, which must match within ±1.
 
 ## Conventions
 - **Config:** one `project.toml` per animation, merged over `mmdance/defaults.toml`, then
