@@ -15,11 +15,13 @@ and every step is cached by its inputs, so a production rebuilds reproducibly. C
 
 [![A Tripo-generated anime character with long orange hair dances an MMD motion in Blender, kicking one leg out while her simulated white and black ball gown flares](media/claude-chika-kick.jpg)](https://github.com/starryark/mmdance#demo)
 
-*The first production: a Tripo-generated character dances a 94 s MMD motion with the
-package's camera, facial track and song, the gown and hair simulated.
-[Watch the demo videos on GitHub](https://github.com/starryark/mmdance#demo): this one, and two
-characters taking turns in a 15 s meme on a set from another `.blend`, filmed by a camera solved
-from the reference video.*
+*Chika Dance: a Tripo-generated character dances a 94 s MMD motion with the package's camera,
+facial track and song; the gown and the hair (lock by lock) are simulated, and the face is rebuilt
+as geometry. [Watch the demo videos on GitHub](https://github.com/starryark/mmdance#demo): this
+one, and two characters taking turns in a 15 s meme on a set from another `.blend`, filmed by a
+camera solved from the reference video.*
+
+中文说明：[README.zh-CN](https://github.com/starryark/mmdance/blob/main/README.zh-CN.md)（简体中文）
 
 ## What it does
 - **VMD → Mixamo retargeting.** MMD Tools evaluates the VMD on a proxy MMD skeleton built at your

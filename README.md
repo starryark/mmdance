@@ -5,6 +5,8 @@
 [![Blender 5.2+](https://img.shields.io/badge/Blender-5.2%2B-orange.svg)](https://www.blender.org/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](requirements.txt)
 
+**English** | [简体中文](README.zh-CN.md)
+
 **mmdance makes a Mixamo-rigged character perform a MikuMikuDance (MMD) dance in Blender.** It
 works with AI-generated (image-to-3D) characters from Tripo or Meshy, with Mixamo and AccuRig
 rigs, or with your own rig mapped by bone name. You give it the character's `.blend` and an MMD
@@ -15,6 +17,28 @@ rest.
 
 ## Demo
 
+https://github.com/user-attachments/assets/532d0b6d-a07f-4ca3-ac91-04a43aa5a862
+
+*[projects/claude_chika_v3](projects/claude_chika_v3): a Tripo-generated anime character in a
+layered ball gown dances akomni's MMD motion チカっとチカ千花っ♡ (94 s) with the package's camera,
+facial track and song, in a student-council room lit by the sun through its windows. `build.py`
+makes the whole scene from the untouched character file: the retargeted dance, the gown and the
+hair simulated lock by lock, hands with drawn-hand finger joints, a face rebuilt as geometry (a
+mouth that opens, eyes in layers, shape keys keyed from the facial track) and the red cap thrown
+into the lens. Shown as an under-10 MB copy of the 1080p render; credits in
+[the project](projects/claude_chika#credits).*
+
+| | | |
+| --- | --- | --- |
+| ![MMD dance in Blender: a Tripo-generated anime character with long orange hair lies across a desk in a sunlit room, singing with her eyes closed, a red cap beside her and her white and black layered ball gown draped over the desk edge](docs/media/claude-chika-desk.jpg) | ![The Mixamo-rigged character kicks one leg out and points mid-dance while the simulated skirt and overskirt flare out behind the turn](docs/media/claude-chika-kick.jpg) | ![Near the end of the dance the character makes a heart with her hands and smiles in the sunlit room, her face rebuilt as geometry, long hair falling over the gown](docs/media/claude-chika-smile.jpg) |
+
+*The opening shot, on the desk (a cloth collider) with the cap; skirt physics on a kick; the
+closing heart, with the rebuilt face. The first version of this video, from
+[projects/claude_chika](projects/claude_chika) (the pipeline's regression standard), is in the
+[0.1.0 release](https://github.com/starryark/mmdance/releases/tag/v0.1.0).*
+
+### Two characters, a camera from the reference video: DreamWings
+
 https://github.com/user-attachments/assets/26e7c1ac-1053-4331-812b-8187a1a2b12a
 
 *[projects/dreamwings](projects/dreamwings): two Tripo-generated characters, Claude and then
@@ -24,24 +48,6 @@ solved frame by frame from the meme's reference video, whip pans and all, and th
 the two dancers is one continuous whip. Both builds start from the untouched character files: the
 retargeted dance, the simulated gowns, hair, sleeves and tail, the faces, and the motion blur. Shown
 as an under-10 MB copy of the 1080p render; credits in [the project](projects/dreamwings#credits-借物表).*
-
-### The first production: Chika Dance
-
-https://github.com/user-attachments/assets/e68a693f-9448-4adc-9f07-b09c7fcc77f6
-
-*[projects/claude_chika](projects/claude_chika), the production mmdance was built for: a
-Tripo-generated anime character in a layered ball gown dances akomni's MMD motion
-チカっとチカ千花っ♡ (94 s), with the package's camera, facial track and song, in a rebuilt
-student-council room. `build.py` makes the whole scene from the untouched character file: the
-retargeted dance, the simulated gown and hair, the face and the stage. Shown here as a 10 MB 720p
-copy of the 1080p render.*
-
-| | | |
-| --- | --- | --- |
-| ![MMD dance in Blender: a Tripo-generated anime character with long orange hair lies across a desk in a red-curtained room, her white and black layered ball gown draped over the desk edge](docs/media/claude-chika-desk.jpg) | ![The Mixamo-rigged character kicks one leg out and points mid-dance while the simulated skirt and overskirt flare out behind the turn](docs/media/claude-chika-kick.jpg) | ![Near the end of the dance the character smiles with her eyes closed, an expression drawn by the painted-face atlas, long hair falling over the gown](docs/media/claude-chika-smile.jpg) |
-
-*The opening shot, on the desk (a cloth collider); skirt physics on a kick; a smile from the
-painted-face expression atlas.*
 
 ## What it does
 
@@ -85,13 +91,14 @@ Everything is generated from your untouched character file by `build.py`. Every 
 results, keyed by its inputs, so a rebuild only recomputes what changed.
 
 ## Status
-This was built for one production: a Tripo-generated 1 m toon character dancing a 94 s MMD motion
-([projects/claude_chika](projects/claude_chika), the [Chika Dance
-video](#the-first-production-chika-dance) above). The engine (retargeting, camera, chains and
-physics, face states, render, encode) is generic and config-driven, and it reproduces that
-production's output exactly: every cache, the face atlases and the rendered frames match. The
-generic path was also smoke-tested on the same character: the default stage, a follow camera,
-shape-key faces, no repairs, and a range starting mid-dance.
+It was built for one production: a Tripo-generated 1 m toon character dancing a 94 s MMD motion
+([projects/claude_chika](projects/claude_chika); its video is in the
+[0.1.0 release](https://github.com/starryark/mmdance/releases/tag/v0.1.0)). The engine
+(retargeting, camera, chains and physics, face states, render, encode) is generic and
+config-driven, and it still reproduces that production's output exactly: every cache, the face
+atlases and the rendered frames match. The generic path was also smoke-tested on the same
+character: the default stage, a follow camera, shape-key faces, no repairs, and a range starting
+mid-dance.
 
 Since then it has made videos with three Tripo characters and two dances. Each new mesh added the
 options it needed, all opt-in:
@@ -99,8 +106,9 @@ options it needed, all opt-in:
   hands that share their material with her neck.
 - [projects/chatgpt_chika](projects/chatgpt_chika): a dragon woman with wings, a tail and bell
   sleeves. Project code simulates the sleeves and beats the wings.
-- [projects/claude_chika_v3](projects/claude_chika_v3): the first production redone, with hair
-  per lock, a calmer gown, drawn-hand finger joints and a face rebuilt as geometry.
+- [projects/claude_chika_v3](projects/claude_chika_v3): the first production redone (the demo
+  above), with hair per lock, a calmer gown, drawn-hand finger joints and a face rebuilt as
+  geometry.
 - [projects/dreamwings](projects/dreamwings): a second dance, a 15 s motion-capture meme. Claude
   and ChatGPT take turns on a set appended from another `.blend`, filmed by a camera solved from
   the reference video.
@@ -108,9 +116,10 @@ options it needed, all opt-in:
 Expect to tune the lattice heights and physics for a new outfit, and the hair for a new dance.
 The face atlas needs measured guide curves for each painted face; a painted face on a sculpted
 head is better rebuilt as geometry (project code in
-[projects/claude_chika_v3](projects/claude_chika_v3), not yet an engine mode). Stage builders,
-sets and solved cameras are per project. Builds were run on Windows 11 with Blender 5.2. The
-DreamWings frames were rendered on Linux, on a cloud GPU, from packed copies of the built scenes.
+[projects/claude_chika_v3](projects/claude_chika_v3), not yet an engine mode). Room builders and
+camera solves are per project; a set from another `.blend` and a solved camera track plug in
+through config. Builds were run on Windows 11 with Blender 5.2. The DreamWings frames were
+rendered on Linux, on a cloud GPU, from packed copies of the built scenes.
 
 ## Requirements
 - **Blender 5.2+** with the **MMD Tools** extension (Edit › Preferences › Get Extensions ›
@@ -150,7 +159,7 @@ committed. See [docs/new-character.md](docs/new-character.md) for the walkthroug
 | `projects/claude_chika/` | The full example: config, the room stage builder, notes and limits |
 | `projects/deepseek_chika/` | A second character on the same dance: apron layer, tail chain, shared-material hands, a skirt texture cleanup, and the room lit by sunlight through its windows |
 | `projects/chatgpt_chika/` | A third character: wings, tail and bell sleeves (sleeve simulation and wing beat as project code), on a model whose parts were repaired first |
-| `projects/claude_chika_v3/` | The example redone: hair per lock, a calmer gown, finger joints, the cap prop, and the face rebuilt as geometry (mouth, layered eyes, shape keys) |
+| `projects/claude_chika_v3/` | The example redone, shown in the demo: hair per lock, a calmer gown, finger joints, the cap prop, and the face rebuilt as geometry (mouth, layered eyes, shape keys) |
 | `projects/dreamwings/` | A second dance with two characters taking turns, config only: a set appended from another `.blend`, a camera from a solved track, a key light following it, motion blur, the two renders cut into one video |
 | `tests/` | Unit tests that run in system Python (`python -m unittest`) |
 
@@ -214,7 +223,8 @@ No. For native MMD models use [MMD Tools](https://github.com/MMD-Blender/blender
   [a new character](docs/new-character.md).
 - Facial tracks made from motion capture can be wrong. One read the dancer's squinting grin as
   closed eyes on 90 % of its frames. `python -m mmdance vmd facial.vmd` shows each morph's range
-  and how often it is above 0.5; write a cleaned track if it doesn't fit your character.
+  and how often it is above 0.5. If it doesn't fit your character, `python -m mmdance facial`
+  writes a cleaned track.
 
 **The MMD camera clips into my character or frames it badly.**
 Add `[[camera.shots]]`: a camera of your own over a frame range, which replaces the MMD camera
@@ -266,14 +276,14 @@ whether EEVEE got the GPU or fell back to software (`llvmpipe`). See
 untested, and the example's toon shaders are EEVEE-only.
 
 **How long does it take?**
-For the 94 s example on the development machine:
+For the 94 s Chika Dance on the development machine:
 
-| Step | Time |
-|---|---|
-| First build (physics simulation 15–20 min) | about 25 min |
-| Rebuild from cache | about 4 min |
-| Render at 1080p with two Blender processes | about 2 h |
-| Encode | under a minute |
+| Step | claude_chika | claude_chika_v3 (the demo) |
+|---|---|---|
+| First build (physics simulation 15–20 min) | about 25 min | about 28 min |
+| Rebuild from cache | about 4 min | 15–20 min (the face rebuild and the room) |
+| Render at 1080p with two Blender processes | about 2 h | about 2.5 h |
+| Encode | under a minute | under a minute |
 
 Motion blur makes EEVEE CPU-bound. The 15 s DreamWings clip took about 21 s a frame per Blender
 process, and about 50 minutes with nine processes sharing one cloud L40S.

@@ -26,6 +26,7 @@ Key facts:
 
 ## Docs
 - [README](https://raw.githubusercontent.com/starryark/mmdance/main/README.md): overview, requirements, quick start, FAQ, related work
+- [README (简体中文)](https://raw.githubusercontent.com/starryark/mmdance/main/README.zh-CN.md): the README in Simplified Chinese
 - [New character walkthrough](https://raw.githubusercontent.com/starryark/mmdance/main/docs/new-character.md): preparing a character, inspecting it, writing project.toml, tuning physics, rendering
 - [How it works](https://raw.githubusercontent.com/starryark/mmdance/main/docs/how-it-works.md): caching, retargeting method, chain layout and weights, the physics solver, facial animation, stage and render
 - [All config keys](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/defaults.toml): every setting with its default and meaning
@@ -49,7 +50,7 @@ Key facts:
 - [tools/remote/](https://github.com/starryark/mmdance/tree/main/tools/remote): Linux GPU setup for headless EEVEE, GPU check, multi-process render job
 
 ## Examples
-- [Demo video](https://github.com/starryark/mmdance#demo): DreamWings, two Tripo characters (Claude, then ChatGPT) taking turns in a 15 s motion-capture meme on an appended lobby set, filmed by a camera solved from the reference video, with motion blur; below it, the 94 s render of the first production (Tripo character, layered ball gown, MMD camera and song), with stills of the desk opening, skirt physics on a kick and a painted-face smile ([1](https://liuyangyi.com/mmdance/media/claude-chika-desk.jpg), [2](https://liuyangyi.com/mmdance/media/claude-chika-kick.jpg), [3](https://liuyangyi.com/mmdance/media/claude-chika-smile.jpg))
+- [Demo videos](https://github.com/starryark/mmdance#demo): the 94 s Chika Dance (projects/claude_chika_v3: a Tripo character in a layered ball gown, hair simulated lock by lock, a face rebuilt as geometry, the MMD package's camera, facial track and song), with stills of the desk opening, skirt physics on a kick and the closing heart ([1](https://liuyangyi.com/mmdance/media/claude-chika-desk.jpg), [2](https://liuyangyi.com/mmdance/media/claude-chika-kick.jpg), [3](https://liuyangyi.com/mmdance/media/claude-chika-smile.jpg)); then DreamWings, two Tripo characters (Claude, then ChatGPT) taking turns in a 15 s motion-capture meme on an appended lobby set, filmed by a camera solved from the reference video, with motion blur
 - [projects/claude_chika](https://raw.githubusercontent.com/starryark/mmdance/main/projects/claude_chika/README.md): the full production the pipeline was built for (a Tripo character in a layered ball gown dancing a 94 s MMD motion), its config and limits
 - [projects/deepseek_chika](https://raw.githubusercontent.com/starryark/mmdance/main/projects/deepseek_chika/README.md): a second character on the same dance (apron, tail, hands sharing the neck's material, sunlight through the windows)
 - [projects/chatgpt_chika](https://raw.githubusercontent.com/starryark/mmdance/main/projects/chatgpt_chika/README.md): a third character (wings, tail, bell sleeves simulated by project code) and the model repairs it needed
