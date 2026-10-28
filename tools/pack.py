@@ -3,7 +3,8 @@
   python -m mmdance pack project.toml [out.blend] [--samples N]
 
 * every image is packed into the file and the remaining paths made absolute; anything still
-  outside it (libraries, caches) is reported;
+  outside it (libraries, caches) is reported. (`bpy.utils.blend_paths` also lists a set's .blend:
+  appended datablocks remember where they came from, but that file is never loaded);
 * the song's preview strip is dropped (`encode` adds the song afterwards);
 * the frames are written next to the copy (frames/<prefix>####.png), resumable as at home: no
   overwrite, placeholders on, so several processes share the range;

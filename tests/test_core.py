@@ -122,6 +122,18 @@ class TestEncode(unittest.TestCase):
         self.assertEqual(files[2], os.path.join(os.path.normpath(os.path.join(d, 'a/f_'))) + '0002.png')
         self.assertEqual(files[3], os.path.normpath(os.path.join(d, '../b/f_')) + '0003.png')
 
+    def test_copy_commands(self):
+        e = config.load(os.path.join(ROOT, 'projects', 'template', 'project.toml')).encode
+        crf, = encode.copy_commands('ffmpeg', e, 'v.mp4', 'v_720.mp4', {'height': 720, 'crf': 20}, 94.0, 'log')
+        self.assertIn('-tune', crf)
+        self.assertEqual(crf[crf.index('-crf') + 1], '20')
+        p1, p2 = encode.copy_commands('ffmpeg', e, 'v.mp4', 'v_10.mp4',
+                                      {'bitrate': '4600k', 'tune': '', 'audio_bitrate': '160k'}, 15.1, 'log')
+        self.assertNotIn('-tune', p1)
+        self.assertEqual((p1[p1.index('-b:v') + 1], p1[p1.index('-pass') + 1], p2[-1]), ('4600k', '1', 'v_10.mp4'))
+        p1, _ = encode.copy_commands('ffmpeg', e, 'v.mp4', 'v_10.mp4', {'max_mb': 10, 'audio_bitrate': '112k'}, 94.0, 'log')
+        self.assertEqual(p1[p1.index('-b:v') + 1], '705k')            # 10 MB * 0.96 over 94 s, less the audio
+
 
 class TestSolver(unittest.TestCase):
     """A small skirt-like lattice hanging from a pinned ring."""

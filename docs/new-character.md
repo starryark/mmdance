@@ -232,7 +232,8 @@ self-contained copy of the built scene to `build/pack/`:
 
 On a Linux cloud GPU (RunPod), headless EEVEE needs the driver's graphics libraries: start the
 container with `NVIDIA_DRIVER_CAPABILITIES=all`, then run `tools/remote/setup_linux_gpu.sh` and
-check with `tools/remote/gpu_check.py`. `tools/remote/render_job.sh` starts the Blender processes
+check with `tools/remote/gpu_check.py`: it must name the NVIDIA GPU (`EEVEE_ON_GPU True`); `llvmpipe`
+means EEVEE fell back to software. `tools/remote/render_job.sh` starts the Blender processes
 20 s apart, since the first one compiles the shaders. Afterwards check every frame: the count, no
 empty or placeholder files, and checksums after the download. Copy the frames into `paths.frames`
 and run `encode`.
@@ -244,4 +245,6 @@ encodes, `[[encode.parts]]` takes the other's frames from the swap on.
 **Endings and copies.** A song longer than the dance plays on over the held last frame;
 `encode.song_end = "cut"` ends the video with the dance instead (`fade` sets the fade-out). The
 productions also shared a 720p copy and one under 10 MB: `encode.copies` writes them next to the
-video, scaled with lanczos, at a CRF or two-pass under a size (`max_mb`).
+video, scaled with lanczos, at a CRF or two-pass at a `bitrate` (or the one that fits under
+`max_mb`). Write the copies a release was made with into its `project.toml`, as claude_chika_v3 and
+DreamWings do, so `encode` makes them again byte for byte.

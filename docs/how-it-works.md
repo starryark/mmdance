@@ -229,4 +229,5 @@ the built scene for another machine (`tools/remote` has the scripts for a Linux 
 `encode` muxes the frames with the song. If the song is longer, it holds the last frame, then
 fades picture and sound out together; `encode.song_end = "cut"` ends with the dance instead.
 `[[encode.parts]]` take the frames from another project's render from a frame on (two characters
-taking turns), and `encode.copies` writes smaller copies (720p, or two-pass under a size).
+taking turns), and `encode.copies` writes smaller copies (720p at a CRF, or two-pass at a bitrate
+or under a size).

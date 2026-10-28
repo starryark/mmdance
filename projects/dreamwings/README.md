@@ -108,9 +108,9 @@ EEVEE on one RunPod L40S at 1920 × 1080, 64 samples:
 - **Every frame was checked:** 453 non-empty PNGs, md5-verified after the download.
 - `python -m mmdance encode projects/dreamwings/claude/project.toml` cuts from Claude's frames to
   ChatGPT's at frame 338 (`[[encode.parts]]`), ends the song with the dance and fades it over
-  0.25 s (`song_end = "cut"`), and writes the 720p and under-10 MB copies (`encode.copies`). From
-  the pod's frames it writes the released `DreamWings.mp4` byte for byte. The copies differ from
-  the released ones only in bitrate.
+  0.25 s (`song_end = "cut"`), and writes the 720p and under-10 MB copies (`encode.copies`: CRF 20,
+  and two passes at 4600 kbit/s without `-tune`). From the pod's frames it writes the released
+  `DreamWings.mp4` and both copies byte for byte.
 
 ## Limits
 - The characters are anime-proportioned and the reference dancers are not. The framing matches

@@ -25,4 +25,4 @@ fi
 /opt/blender/blender --version | head -1
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
 ls /usr/lib/x86_64-linux-gnu/ | grep -E "libEGL_nvidia|libGLX_nvidia|libnvidia-glcore|libnvidia-eglcore" | head
-ls /usr/share/glvnd/egl_vendor.d/ /etc/vulkan/icd.d/ /usr/share/vulkan/icd.d/ 2>/dev/null
+ls /usr/share/glvnd/egl_vendor.d/ /etc/vulkan/icd.d/ /usr/share/vulkan/icd.d/ 2>/dev/null || true

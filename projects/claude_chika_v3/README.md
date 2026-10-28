@@ -7,10 +7,11 @@ as 3D anime faces are made. `claude_chika` stays as it was: it is the pipeline's
 ```
 python -m mmdance build  projects/claude_chika_v3/project.toml        # ~28 min with the simulation, 15-20 cached
 python -m mmdance render projects/claude_chika_v3/project.toml --jobs 2   # ~2.5 h
-python -m mmdance encode projects/claude_chika_v3/project.toml
+python -m mmdance encode projects/claude_chika_v3/project.toml    # + the 720p and under-10 MB copies
 ```
 The stage takes about 10 minutes of a cached build (the face rebuild and the room), against 1 for
-claude_chika.
+claude_chika. From the released `Claude_ChikaDance.mp4`, `encode.copies` makes the released 720p and
+10 MB copies again byte for byte.
 [dreamwings](../dreamwings) runs this character setup on another dance.
 
 | | |

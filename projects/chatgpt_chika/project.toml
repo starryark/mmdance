@@ -134,7 +134,7 @@ attach = 0.01                               # anklets and shoe ornaments are sep
 [tail]
 enabled = true
 seed = [0.27, 0.20, 0.25]
-sway = [6.0, 60.0, 5.0]                     # a slow swish down the tail, two beats long (90 bpm)
+sway = [6.0, 60.0, 5.0]                     # a slow swish down the tail, three beats long (the song is ~90 bpm)
 
 [tail.physics]                              # muscular: firm at the root, free toward the tip
 elastic = [1.0, 1.0, 0.45, 0.28, 0.18, 0.13, 0.10, 0.085, 0.075]

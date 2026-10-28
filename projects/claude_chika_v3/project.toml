@@ -52,6 +52,10 @@ keys = [[0, [-0.58, -0.98, 1.12], [0.04, -0.07, 0.47]],
 [audio]
 file = "source/song.wav"
 
+[encode]                                    # the copies released with the video
+copies = [{ suffix = "_preview_720p", height = 720, crf = 20, audio_bitrate = "128k" },
+          { suffix = "_10MB", height = 720, bitrate = "680k", audio_bitrate = "112k" }]
+
 [face]
 mode = "none"                               # the face's shape keys are keyed by face_rebuild.py
 vmd = "source/facial.vmd"

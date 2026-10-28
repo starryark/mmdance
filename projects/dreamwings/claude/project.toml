@@ -41,7 +41,7 @@ fade = 0.25
 fade_picture = false
 parts = [{ start = 338, frames = "../chatgpt/render/frames/dw_" }]
 copies = [{ suffix = "_preview_720p", height = 720, crf = 20, audio_bitrate = "192k" },
-          { suffix = "_10MB", max_mb = 10, audio_bitrate = "160k" }]
+          { suffix = "_10MB", bitrate = "4600k", tune = "", audio_bitrate = "160k" }]
 
 [face]
 mode = "none"                               # the rebuilt face's shape keys are keyed by face_rebuild.py

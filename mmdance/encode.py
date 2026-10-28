@@ -44,22 +44,26 @@ def frame_files(cfg):
     return out
 
 
-def copy(ffmpeg, e, src, out, c, duration):
-    """A smaller copy: scaled to `height`, at `crf` or two-pass to fit under `max_mb`."""
+def copy_commands(ffmpeg, e, src, out, c, duration, log):
+    """The ffmpeg command(s) of a smaller copy: scaled to `height`, at `crf`, or two-pass at
+    `bitrate` (or the bitrate that fits under `max_mb`). `tune` overrides encode.tune ("" = none)."""
     vf = ['-vf', f'scale=-2:{c["height"]}:flags=lanczos'] if c.get('height') else []
-    common = ['-c:v', 'libx264', '-preset', e.preset, '-tune', e.tune, '-pix_fmt', 'yuv420p']
-    audio = ['-c:a', 'aac', '-b:a', c.get('audio_bitrate', '128k'), '-movflags', '+faststart']
-    if c.get('max_mb'):
-        akbps = int(c.get('audio_bitrate', '128k').rstrip('k'))
-        vkbps = int(c['max_mb'] * 8000 * 0.96 / duration - akbps)       # 4 % headroom for the container
-        with tempfile.TemporaryDirectory() as tmp:
-            log = os.path.join(tmp, 'pass')
-            for n, tail in ((1, ['-an', '-f', 'mp4', os.devnull]), (2, audio + [out])):
-                subprocess.run([ffmpeg, '-y', '-v', 'error', '-i', src] + vf + common +
-                               ['-b:v', f'{vkbps}k', '-pass', str(n), '-passlogfile', log] + tail, check=True)
-    else:
-        subprocess.run([ffmpeg, '-y', '-v', 'error', '-i', src] + vf + common + ['-crf', str(c.get('crf', 20))] +
-                       audio + [out], check=True)
+    tune = c.get('tune', e.tune)
+    head = [ffmpeg, '-y', '-v', 'error', '-i', src] + vf + ['-c:v', 'libx264', '-preset', e.preset] + \
+        (['-tune', tune] if tune else []) + ['-pix_fmt', 'yuv420p']
+    abr = c.get('audio_bitrate', '128k')
+    audio = ['-c:a', 'aac', '-b:a', abr, '-movflags', '+faststart']
+    if not (c.get('bitrate') or c.get('max_mb')):
+        return [head + ['-crf', str(c.get('crf', 20))] + audio + [out]]
+    vbr = c.get('bitrate') or f"{int(c['max_mb'] * 8000 * 0.96 / duration - int(abr.rstrip('k')))}k"  # 4 % for the container
+    return [head + ['-b:v', vbr, '-pass', str(n), '-passlogfile', log] + tail
+            for n, tail in ((1, ['-an', '-f', 'mp4', os.devnull]), (2, audio + [out]))]
+
+
+def copy(ffmpeg, e, src, out, c, duration):
+    with tempfile.TemporaryDirectory() as tmp:
+        for cmd in copy_commands(ffmpeg, e, src, out, c, duration, os.path.join(tmp, 'pass')):
+            subprocess.run(cmd, check=True)
     print('wrote', out, f'{os.path.getsize(out) / 1e6:.2f} MB')
 
 
