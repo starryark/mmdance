@@ -176,33 +176,57 @@ hem trails the hips.
   - The facial track keys the shape keys directly (`face.mode = "none"`).
 
 ## Stage and render
-`stage.builder = "default"` gives a floor disc under the world colour. A project builder is a
-Python file defining `build(collection, cfg)`, and optionally `colliders(cfg)` to return furniture
-boxes for the physics and `finish(collection, cfg)`, called last for the project's own lighting and
-look; see `projects/claude_chika/room.py` and `projects/deepseek_chika/room.py`.
+The stage runs in this order:
+1. **The set.** `stage.builder = "default"` gives a floor disc under the world colour.
+   `"set"` appends a set made in another `.blend` (below). A project builder is a Python file
+   defining `build(collection, cfg)`, and optionally `colliders(cfg)` to return furniture boxes for
+   the physics; see `projects/claude_chika/room.py` and `projects/deepseek_chika/room.py`.
+2. The key sun, the fog glow and the render settings.
+3. **Project steps** (`stage.steps`): Python files run on the built character, each defining
+   `run(cfg, collection)`: the face rebuild, the cap prop, the sleeve simulation, the wing beat.
+   Paths are relative to `project.toml`, so a project uses another's file instead of copying it
+   (`projects/dreamwings/claude` runs `../../claude_chika_v3/face_rebuild.py`). Project code reads
+   the body track and simulation through `physics.body_track()` and `physics.sim_key()`, never by
+   rebuilding the cache keys itself.
+4. Cleaned textures (`stage.textures`) and the lining of single-layer fabric (`stage.lining`): its
+   backfaces show the print multiplied by a darker tint, not the outside print.
+5. The dancer's place and heading from the camera track (`camera.track_dancer`). Object keys on the
+   rig come last: until here the rig object stays at the origin, because the rig stage joins the
+   rebuilt hands into the body through world matrices.
+6. **The key light follows the camera** (`stage.key_follow`), if set. On a toon character the key
+   also drives the face shading (a driver reads the sun's `rotation_euler` x and z), so it is keyed
+   from above the camera and turned round from it, on every frame, and keeps y at 0.
+   `stage.key_link` lights only the character with it (light linking); the set keeps its own
+   lights.
+7. The builder's `finish(collection, cfg)`, for the project's own lighting and look (sunlight
+   through the windows and lighting cues in the room).
 
-`finish()` runs after the physics bake, so it can also run project code on the built character
-(the face rebuild, the sleeve simulation, the wing beat) and replace the camera.
-`projects/dreamwings/lobby.py` shows the parts a set from another file needs:
-- **The set is appended**, not modelled: the `.blend`'s collections hang on one empty, which
-  scales them around the dance. A set modelled at real size is shrunk by 1/1.6 so that the 1 m
-  characters read as 1.6 m. Point, spot and area lights then lose power by the scale squared,
-  and their soft shadow size by the scale, so the set is lit as before. Sun and world are
-  unchanged.
-- **The spot.** The dance is placed where the hips' path (plus the arms' reach) and the camera's
-  path stay clear of the furniture over the whole dance: every spot and turn is ranked by its
+**A set from another file** (`builder = "set"`, `[stage.set]`, used by `projects/dreamwings`):
+- The `.blend`'s collections are appended, not linked, and hang on one empty that scales, turns
+  and places them around the dance. A set modelled at real size is shrunk by 1/1.6 so that the 1 m
+  characters read as 1.6 m. Point, spot and area lights then lose power by the scale squared, and
+  their soft shadow size by the scale, so the set is lit as before. Sun and world are unchanged.
+- **The spot.** Place the dance where the hips' path (plus the arms' reach) and the camera's path
+  stay clear of the furniture over the whole dance. DreamWings ranked every spot and turn by its
   clearance from the set's furniture, drawn as boxes on the floor plan.
-- **A camera of its own**, keyed on every frame from a track made outside Blender, set as the
-  scene camera. The rig object can be keyed too, to turn the dancer with the camera. These keys go
-  on after the physics, so the simulation does not feel that turn; keep it slow.
-- **The character's key light is linked to the character only.** On a toon character the key also
-  drives the face shading (a driver reads the sun's rotation), so it follows the camera and keeps
-  `rotation_euler` y at 0. The set keeps its own lights.
+
+**A camera from a track** (`camera.track`): an `.npz` with the camera's location and rotation on
+every frame, its lens and sensor, made outside Blender (DreamWings solved one from the meme's
+reference video). With `camera.track_dancer` the rig object is keyed from the same file. A motion
+capture keeps the dancer facing the lens, and this turns her back with the real camera. The
+simulation runs in the rig's own frame, so it does not feel that turn; keep it slow.
 
 The render is EEVEE with ray tracing, a fog-glow compositor pass and PNG output. The view
 transform is `Standard` (`render.view_transform`), so toon colours render as painted. AgX,
 Blender's default, washes them out. A set lit for AgX, with bright windows and lamps, can use
 `Khronos PBR Neutral`, which keeps the painted colours and still rolls off the highlights.
+`render.motion_blur` (the shutter in frames) suits fast camera whips. It makes EEVEE CPU-bound by
+the scene evaluation, so render with more processes per GPU.
 `use_overwrite = False` and placeholders are on, so several Blender processes can share the frame
-range and an interrupted render resumes. `encode` muxes the frames with the song. If the song is
-longer, it holds the last frame, then fades picture and sound out together.
+range and an interrupted render resumes. `python -m mmdance pack` writes a self-contained copy of
+the built scene for another machine (`tools/remote` has the scripts for a Linux GPU).
+
+`encode` muxes the frames with the song. If the song is longer, it holds the last frame, then
+fades picture and sound out together; `encode.song_end = "cut"` ends with the dance instead.
+`[[encode.parts]]` take the frames from another project's render from a frame on (two characters
+taking turns), and `encode.copies` writes smaller copies (720p, or two-pass under a size).

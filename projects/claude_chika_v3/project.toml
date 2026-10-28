@@ -148,7 +148,8 @@ cross_side_legs_below = 0.55                # the boots almost touch: weights bl
 rigid_boots = true                          # smeared weights made the boot crumple
 
 [stage]
-builder = "room.py"                         # the Deepseek v2 room: after the original ED, sun through the windows
+builder = "../deepseek_chika/room.py"       # the Deepseek v2 room: after the original ED, sun through the windows
+steps = ["face_rebuild.py", "../deepseek_chika/hat.py"]   # the face rebuilt; the red cap (sections below)
 world = "AIG_World"
 sun = "AIG_Sun"                             # direction kept: the face shading driver reads it
 desk = [-0.22, 0.62, -0.34, 0.22, 0.48]     # x0, x1, y0, y1, top

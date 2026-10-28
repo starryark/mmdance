@@ -24,8 +24,10 @@ vmd = "source/VMD-TDA.vmd"
 thumb_rest = [0.838, 0.395, 0.377]
 
 [camera]
-vmd = ""                                    # the solved camera is keyed by ../lobby.py (camera.track)
-track = "../camera/camera_track.npz"
+vmd = ""
+track = "../camera/camera_track.npz"        # solved from the meme's reference video (MMD_DreamWings/tools)
+track_dancer = "chatgpt"                    # her place and heading from it: the mocap kept her facing the lens
+clip = [0.01, 120.0]
 
 [audio]
 file = "../audio/song.wav"
@@ -149,34 +151,37 @@ rigid_boots = true
 rigid_boots_hips = true                     # her leg mesh reaches up to the pelvis
 
 [stage]
-builder = "../lobby.py"
+builder = "set"                             # the lobby, appended ([stage.set] below)
+steps = ["../../chatgpt_chika/sleeves.py", "../../chatgpt_chika/wings.py"]   # [stage.sleeves], [stage.wings]
 world = "AIG_World"
-sun = "AIG_Sun"                             # direction kept: the face shading driver reads it
+sun = "AIG_Sun"                             # the face shading driver reads its direction
+key_follow = [35.0, 25.0]                   # it follows the camera: 35 deg above it, turned 25 deg round
+key_energy = 1.5
+key_link = true                             # it lights only the dancer; the lobby keeps its own lights
 # single-layer fabric: the inside in a darker shade of the print
 lining = { ChatGPT_Cloth = [0.84, 0.82, 0.92], ChatGPT_Sleeve = [0.84, 0.82, 0.92], ChatGPT_Wing = [0.80, 0.78, 0.90] }
 
-# The Anthropic lobby (../lobby.py). The characters are 1 m tall and the lobby real size: it is
-# scaled by 1/1.6 around the dance, so they read as 1.6 m. Its spot center_lobby (between the
+# The Anthropic lobby (builder = "set"). The characters are 1 m tall and the lobby real size: it is
+# scaled by 1/1.6 around the dance, so they read as 1.6 m. Its spot center_set (between the
 # slatted screens and the wall planters, lobby metres; tools/place_dance.py: 0.9 m clear of
 # everything on the dance's and the camera's paths) goes onto center_dance (the middle of those
 # paths, character metres). Rotation 180: the opening and ChatGPT's part look down the lobby at the
 # tree and the ANTHROP\C wall; in between the camera turns past the glazing and the screens.
-[stage.lobby]
+[stage.set]
 file = "lobby/lobby.blend"
+collections = ["ARCHITECTURE", "FURNITURE", "VEGETATION", "LIGHTS", "EXTERIOR", "SIGNAGE"]
 world = "World_Daylight"
 scale = 0.625
 rotation = 180.0
-center_lobby = [1.0, 18.25]
+center_set = [1.0, 18.25]
 center_dance = [0.52, 0.545]
-character = "chatgpt"
-key_elevation = 35.0                        # the character's key light: above the camera,
-key_azimuth = 25.0                          # turned this far round from it (deg)
-key_energy = 1.5
-motion_blur = 0.5                           # shutter (frames); the reference's whip pans blur
-view_transform = "Khronos PBR Neutral"         # base colours as painted (the toon look), highlights rolled off
-look = "None"
-exposure = 0.0
+
+[render]
+view_transform = "Khronos PBR Neutral"      # base colours as painted (the toon look), highlights rolled off
+motion_blur = 0.5                           # shutter (frames): the reference's whip pans blur
 shadow_pool = "1024"                        # MB: the lobby has 58 shadowed lights
+fast_gi = true
+trace_max_roughness = 0.5
 
 
 # The bell sleeves on their bone chains (sleeves.py): soft cloth that hangs from the forearm

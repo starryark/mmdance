@@ -1,5 +1,5 @@
-"""A living pair of wings for the ChatGPT character (called from room.finish() when [stage.wings]
-is set). The model prep gave each wing two bones on the upper back (Wing_L/R_0 from the spine to
+"""A living pair of wings for the ChatGPT character (a stage step: stage.steps = ["wings.py"];
+dreamwings/chatgpt points at this file too). The model prep gave each wing two bones on the upper back (Wing_L/R_0 from the spine to
 the end of the crossbar, Wing_L/R_1 the outer wing). They get keys:
   * a slow beat: the wings open and close a little and lift, the outer wing following late;
   * drag in turns: when her chest turns, the wings sweep back against the turn and settle.
@@ -12,7 +12,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from mmdance import config, physics  # noqa: E402
+from mmdance import physics  # noqa: E402
 from mmdance import solver as ps  # noqa: E402
 from mmdance.util import channelbag, put_curve, rig_and_body  # noqa: E402
 
@@ -30,17 +30,12 @@ def qmul(a, b):
                      w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2, w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2])
 
 
-def run(cfg):
+def run(cfg, coll=None):
     sec = cfg.stage.wings
     rig, _ = rig_and_body(cfg)
     TRACK = ps.TRACK
     ti = {n: i for i, n in enumerate(TRACK)}
-    rest = np.array([np.array(rig.data.bones[cfg.bone(n)].matrix_local) for n in TRACK])
-    motion_key = cfg.key(config.file_key(cfg.path('motion.vmd')), cfg.motion.scale, cfg.motion.arm_angle,
-                         cfg.project.frame_start, cfg.project.frame_end, rest.tolist(),
-                         *([cfg.motion.thumb_rest, cfg.motion.hands_apart]
-                           if cfg.motion.thumb_rest or cfg.motion.hands_apart else []))
-    mats = physics.sample_track(cfg, rig, cfg.cache(f'body_track_{motion_key}.npz'), rest)
+    mats, rest, _ = physics.body_track(cfg, rig)
     nf = mats.shape[0]
     f = np.arange(nf) + cfg.project.frame_start
     # chest turn rate (deg/frame) relative to its rest facing, smoothed: the wings trail it

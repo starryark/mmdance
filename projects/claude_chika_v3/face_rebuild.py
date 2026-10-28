@@ -1,4 +1,5 @@
-"""Rebuild the face as 3D anime faces are made (run inside Blender, from room.py's finish()).
+"""Rebuild the face as 3D anime faces are made (run inside Blender as a stage step:
+stage.steps = ["face_rebuild.py"]; dreamwings/claude points at this file too).
 
 Tripo's face is a realistic sculpt (nose, lips and a mouth slit, eye sockets, eyeballs, lids) in some
 thirty pieces, under a painting projected straight from the front. Drawn features over sculpted ones
@@ -417,12 +418,13 @@ def grid_faces(B, ids, mat, part, uvs=None, flip=False):
             B.face([ids[a][b] for a, b in corners], mat, part, None if uvs is None else [uvs[a][b] for a, b in corners])
 
 
-def run(cfg, ob):
+def run(cfg, coll):
+    ob = bpy.data.objects[cfg.character.body]
     fr = cfg.stage.face_rebuild
     me = ob.data
     names = [m.name for m in me.materials]
     fi = names.index(fr.material)
-    n_adopted = project_module(cfg, 'face_shape').adopt_islands(me, fi, fr.adopt_max_polys, fr.adopt_ratio)
+    n_adopted = sibling('face_shape').adopt_islands(me, fi, fr.adopt_max_polys, fr.adopt_ratio)
     cu, cv = projection(me, fi)
     mat = bpy.data.materials[fr.material]
     _, base, shader, inp = face.face_nodes(cfg, mat)
@@ -854,9 +856,10 @@ def key_from_track(cfg, ob, keys):
     print('[stage] face keys:', {k: round(float(v.max()), 2) for k, v in vals.items()})
 
 
-def project_module(cfg, name):
+def sibling(name):
+    """A module next to this file (it may run for another project, as dreamwings/claude)."""
     import importlib.util
-    spec = importlib.util.spec_from_file_location('project_' + name, cfg.resolve(name + '.py'))
+    spec = importlib.util.spec_from_file_location('face_rebuild_' + name, os.path.join(HERE, name + '.py'))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod

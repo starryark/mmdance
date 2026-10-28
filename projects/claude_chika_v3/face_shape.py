@@ -1,5 +1,5 @@
 """Make the front-projected face read as a drawn anime face from every angle (run inside Blender,
-from room.py's finish()).
+as a stage step; v4 uses only its adopt_islands, from face_rebuild.py).
 
 The face painting was projected straight from the front (u, v linear in x, z), so the front view is
 right by construction, and a vertex may move along Y (depth) without breaking the painting. Tripo
@@ -82,7 +82,9 @@ def adopt_islands(me, fi, max_polys, min_ratio):
     return len(adopted)
 
 
-def run(cfg, ob):
+def run(cfg, coll):
+    import bpy
+    ob = bpy.data.objects[cfg.character.body]
     fs = cfg.stage.face_shape
     me = ob.data
     fi = [m.name for m in me.materials].index(fs.material)

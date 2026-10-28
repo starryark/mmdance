@@ -1,0 +1,2 @@
+# Shell scripts run on Linux render machines (tools/remote): keep LF even in a Windows checkout.
+*.sh text eol=lf

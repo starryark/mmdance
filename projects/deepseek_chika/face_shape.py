@@ -12,7 +12,7 @@ Two repairs, both Y-only:
 The shading normals are kept: the corner normals are read before and set again after.
 
 Two halves: `python face_shape.py face.png out.npy` (system Python: scipy, pillow) measures how far
-each texel lies outside the painted face skin; run(cfg, ob) (inside Blender, from room.py) moves
+each texel lies outside the painted face skin; run(cfg, coll) (inside Blender, a stage step) moves
 the vertices, running the first half when its result is missing.
 """
 import os
@@ -35,8 +35,9 @@ def outside_distance(png, out):
     np.save(out, d.astype(np.float32))
 
 
-def run(cfg, ob):
+def run(cfg, coll):
     import bpy
+    ob = bpy.data.objects[cfg.character.body]
     fs = cfg.stage.face_shape
     me = ob.data
     fi = [m.name for m in me.materials].index(fs.material)

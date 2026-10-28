@@ -16,8 +16,8 @@ claude_chika.
 | | |
 |---|---|
 | `project.toml` | claude_chika's settings, plus: hair per lock, the calmer gown, `hands.phalanges` / `hands.spread`, the thumb rest and the heart's wrist spread, the cap, desk props, the rebuilt face (`[stage.face_rebuild]`) |
-| `room.py` | The deepseek_chika room (after the original ED, sun through the windows, haze, cues on the song); desk props placed from `[stage] props` |
-| `hat.py` | The red cap: on the desk, picked up, worn, thrown into the lens (as deepseek_chika) |
+| `stage.builder` | `../deepseek_chika/room.py`: the room after the original ED, sun through the windows, haze, cues on the song; desk props placed from `[stage] props` |
+| `stage.steps` | `face_rebuild.py`, then `../deepseek_chika/hat.py`: the red cap, on the desk, picked up, worn, thrown into the lens |
 | `face_rebuild.py` | v4: the face rebuilt: clean surface, a real mouth (opening, lip line, inside, teeth, tongue), eyes in layers, shape keys keyed from the facial track |
 | `face_textures.py` | v4: the clean skin and the eye layers made from the painting (system Python) |
 | `face_shape.py` | v3's face (relief smoothed in depth, proxy normals); v4 still uses its `adopt_islands` |

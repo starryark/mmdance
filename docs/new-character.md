@@ -129,9 +129,10 @@ length; on an MMD model it is about 0.64. Both act on the rig before the motion 
 - **Look at the facial track first.** `python -m mmdance vmd facial.vmd` lists each morph with
   its range and how often it is above 0.5. Hand-keyed MMD tracks are usually fine. Tracks made from
   motion capture (ARKit-style names next to a few MMD ones) can be wrong. The DreamWings capture
-  read the dancer's squinting grin as closed eyes: ウィンク was above 0.5 on 96 % of its keys. Write
-  a cleaned track then; the face section of `projects/dreamwings/README.md` describes one (open
-  eyes with blinks, the capture's mouth openings, a light smile between them).
+  read the dancer's squinting grin as closed eyes: ウィンク was above 0.5 on 96 % of its keys.
+  `python -m mmdance facial` writes a cleaned track: natural blinks instead of the capture's eyes,
+  the mouth morphs you keep (scaled, capped, renamed) and a light smile while the mouth is closed.
+  `projects/dreamwings/README.md` has the arguments it used.
 
 **A painted face on a sculpted head.** Image-to-3D generators (Tripo) paint the face over a
 realistic sculpt: a nose, lips with a mouth slit, eye sockets, often in thirty separate pieces
@@ -140,9 +141,9 @@ the outline shell catches its creases, drawing a second mouth under the painted 
 sockets, and the shading follows its relief. Anime character models are built the other way round.
 The mouth is geometry: an opening, the inside of the mouth, teeth and tongue, moved by shape keys
 for あ い う え お. The eyes are layers (an eyeball under the lids), and the inner face has no
-outline. `projects/claude_chika_v3/face_rebuild.py` rebuilds a painted face like that from a
-stage builder's `finish()`: it removes everything inside the face's outline and fills it with a
-smooth surface. It cuts the mouth, layers the eyes, makes the textures from the painting
+outline. `projects/claude_chika_v3/face_rebuild.py` rebuilds a painted face like that as a stage
+step (`stage.steps`): it removes everything inside the face's outline and fills it with a smooth
+surface. It cuts the mouth, layers the eyes, makes the textures from the painting
 (`face_textures.py`) and keys the shape keys from the facial track; set `face.mode = "none"`.
 Before you start, look at the face material's pieces: some may carry other materials, and where
 one painted eye is damaged, the other can be mirrored about the face's symmetry plane.
@@ -151,21 +152,29 @@ one painted eye is damaged, the other can be mirrored about the face's symmetry 
 - `camera.vmd`: the MMD camera. Each MMD motion usually ships one tuned for a standard model.
 - `[[camera.shots]]`: replaces it over a frame range when it doesn't suit your model, for instance
   when the lens ends up inside a big skirt.
-- A dance without an MMD camera: a stage builder's `finish()` can key a camera of its own.
-  `projects/dreamwings` solves one from the dance's reference video, frame by frame.
+- `camera.track`: a camera keyed on every frame from an `.npz` made outside Blender, for a dance
+  without an MMD camera. `projects/dreamwings` solved one from the dance's reference video, frame
+  by frame; `camera.track_dancer` also turns the dancer with it, from the same file.
 - `camera.resolution`: the output size.
 
 **Stage:**
 - `builder = "default"` gives a floor and a flat backdrop.
 - For a set, write a builder: copy the shape of `projects/claude_chika/room.py`. Furniture the
   dance touches should also be returned from `colliders(cfg)` as boxes `(x0, x1, y0, y1, top)`.
-- A builder can also define `finish(collection, cfg)`, run after the lights and render settings,
-  for the project's own look: `projects/deepseek_chika/room.py` uses it for sunlight through the
-  windows, haze, a sunlit toon tone and lighting cues that follow the song.
-- A set from another `.blend` can be appended and scaled around the dance:
-  `projects/dreamwings/lobby.py`, described in [how it works](how-it-works.md#stage-and-render).
-  Keep `render.view_transform` at `Standard` for the toon colours, or use `Khronos PBR Neutral`
-  if the set needs its highlights rolled off. AgX washes the toon colours out.
+- A builder can also define `finish(collection, cfg)`, run last, for the project's own look:
+  `projects/deepseek_chika/room.py` uses it for sunlight through the windows, haze, a sunlit toon
+  tone and lighting cues that follow the song. Point other projects at the same file
+  (`builder = "../deepseek_chika/room.py"`) rather than copying it; `chatgpt_chika` and
+  `claude_chika_v3` do.
+- `builder = "set"` appends a set made in another `.blend` and scales it around the dance
+  (`[stage.set]`; see [how it works](how-it-works.md#stage-and-render)). Keep
+  `render.view_transform` at `Standard` for the toon colours, or use `Khronos PBR Neutral` if the
+  set needs its highlights rolled off. AgX washes the toon colours out.
+- Code of your own that works on the built character (a face rebuild, a prop, sleeves) goes in
+  `stage.steps`: each file defines `run(cfg, collection)`. `stage.lining` gives single-layer fabric
+  a darker inside, and `stage.textures` swaps in cleaned copies of the character's textures.
+- On a camera that circles the dancer, `stage.key_follow` keeps the key light (and a toon face's
+  shading) coming from beside the camera, and `stage.key_link` keeps it off the set.
 
 ## 4. Build, look, iterate
 ```
@@ -210,25 +219,29 @@ Rendering skips frames that already exist and writes placeholders, so processes 
 range and a stopped render resumes. Delete the frames folder to re-render from scratch. `encode`
 refuses to run while frames are missing or still placeholders.
 
-**Motion blur** (set by a stage builder's `finish()`; shutter 0.5 frame matched the whip pans of
-the DreamWings reference) makes EEVEE spend most of a frame evaluating the scene on the CPU:
-about 21 s a frame per process there. Run more processes per GPU; nine shared one L40S.
+**Motion blur** (`render.motion_blur`, the shutter in frames; 0.5 matched the whip pans of the
+DreamWings reference) makes EEVEE spend most of a frame evaluating the scene on the CPU: about
+21 s a frame per process there. Run more processes per GPU; nine shared one L40S.
 
-**Rendering on another machine.** Render a self-contained copy of the built scene:
-- pack every image into it and make the remaining paths absolute;
-- drop the song's preview strip (`encode` adds the song afterwards);
-- keep `use_overwrite` off and placeholders on, and write the frames next to the `.blend`.
+**Rendering on another machine.** `python -m mmdance pack projects/<name>/project.toml` writes a
+self-contained copy of the built scene to `build/pack/`:
+- every image packed into it, the remaining paths made absolute, and a report of anything still
+  outside the file;
+- the song's preview strip dropped (`encode` adds the song afterwards);
+- frames written next to the copy, with `use_overwrite` off and placeholders on.
 
-Then check that nothing still points outside the file. On a Linux cloud GPU (RunPod), headless
-EEVEE needs the driver's graphics libraries: start the container with
-`NVIDIA_DRIVER_CAPABILITIES=all` and install the EGL, GL and Vulkan client libraries. Start the
-Blender processes about 20 s apart, since the first one compiles the shaders. Afterwards check
-every frame: the count, no empty or placeholder files, and checksums after the download.
+On a Linux cloud GPU (RunPod), headless EEVEE needs the driver's graphics libraries: start the
+container with `NVIDIA_DRIVER_CAPABILITIES=all`, then run `tools/remote/setup_linux_gpu.sh` and
+check with `tools/remote/gpu_check.py`. `tools/remote/render_job.sh` starts the Blender processes
+20 s apart, since the first one compiles the shaders. Afterwards check every frame: the count, no
+empty or placeholder files, and checksums after the download. Copy the frames into `paths.frames`
+and run `encode`.
 
 **Two characters in one video** (DreamWings: Claude, then ChatGPT): give each character its own
-project on the same frame range, camera track and song, render both, and cut between their frame
-folders at the swap when encoding.
+project on the same frame range, camera track and song, and render both. In the project that
+encodes, `[[encode.parts]]` takes the other's frames from the swap on.
 
-**Copies for sharing.** `encode` makes the full-quality video. The productions also made a 720p
-copy and one under 10 MB with ffmpeg: scale to 1280 × 720 with lanczos; for the size limit, a
-two-pass H.264 encode at the bitrate that fits (680 kbit/s for 94 s, with 112 kbit/s AAC).
+**Endings and copies.** A song longer than the dance plays on over the held last frame;
+`encode.song_end = "cut"` ends the video with the dance instead (`fade` sets the fade-out). The
+productions also shared a 720p copy and one under 10 MB: `encode.copies` writes them next to the
+video, scaled with lanczos, at a CRF or two-pass under a size (`max_mb`).

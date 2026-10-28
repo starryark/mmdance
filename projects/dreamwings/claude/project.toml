@@ -13,7 +13,7 @@ frame_end = 452
 character = "character/Claude_polished.blend"
 blend = "build/DreamWings_Claude.blend"
 frames = "render/frames/dw_"
-video = "build/DreamWings_Claude.mp4"
+video = "build/DreamWings.mp4"               # the whole video: this project encodes it ([encode])
 
 [character]
 rig = "Claude_Rig"
@@ -25,11 +25,23 @@ scale = 0.054
 thumb_rest = [0.838, 0.395, 0.377]
 
 [camera]
-vmd = ""                                    # the solved camera is keyed by ../lobby.py (camera.track)
-track = "../camera/camera_track.npz"
+vmd = ""
+track = "../camera/camera_track.npz"        # solved from the meme's reference video (MMD_DreamWings/tools)
+track_dancer = "claude"                     # her place and heading from it: the mocap kept her facing the lens
+clip = [0.01, 120.0]
 
 [audio]
 file = "../audio/song.wav"
+
+# The video: Claude's frames, ChatGPT's from the swap on (the whip pan at 338), ending with the
+# motion's 15.1 s while the DJ track goes on. Copies for sharing next to it.
+[encode]
+song_end = "cut"
+fade = 0.25
+fade_picture = false
+parts = [{ start = 338, frames = "../chatgpt/render/frames/dw_" }]
+copies = [{ suffix = "_preview_720p", height = 720, crf = 20, audio_bitrate = "192k" },
+          { suffix = "_10MB", max_mb = 10, audio_bitrate = "160k" }]
 
 [face]
 mode = "none"                               # the rebuilt face's shape keys are keyed by face_rebuild.py
@@ -145,32 +157,35 @@ cross_side_legs_below = 0.55                # the boots almost touch: weights bl
 rigid_boots = true                          # smeared weights made the boot crumple
 
 [stage]
-builder = "../lobby.py"
+builder = "set"                             # the lobby, appended ([stage.set] below)
+steps = ["../../claude_chika_v3/face_rebuild.py"]   # the rebuilt face ([stage.face_rebuild] below)
 world = "AIG_World"
-sun = "AIG_Sun"                             # direction kept: the face shading driver reads it
+sun = "AIG_Sun"                             # the face shading driver reads its direction
+key_follow = [35.0, 25.0]                   # it follows the camera: 35 deg above it, turned 25 deg round
+key_energy = 1.5
+key_link = true                             # it lights only the dancer; the lobby keeps its own lights
 
-# The Anthropic lobby (../lobby.py). The characters are 1 m tall and the lobby real size: it is
-# scaled by 1/1.6 around the dance, so they read as 1.6 m. Its spot center_lobby (between the
+# The Anthropic lobby (builder = "set"). The characters are 1 m tall and the lobby real size: it is
+# scaled by 1/1.6 around the dance, so they read as 1.6 m. Its spot center_set (between the
 # slatted screens and the wall planters, lobby metres; tools/place_dance.py: 0.9 m clear of
 # everything on the dance's and the camera's paths) goes onto center_dance (the middle of those
 # paths, character metres). Rotation 180: the opening and ChatGPT's part look down the lobby at the
 # tree and the ANTHROP\C wall; in between the camera turns past the glazing and the screens.
-[stage.lobby]
+[stage.set]
 file = "lobby/lobby.blend"
+collections = ["ARCHITECTURE", "FURNITURE", "VEGETATION", "LIGHTS", "EXTERIOR", "SIGNAGE"]
 world = "World_Daylight"
 scale = 0.625
 rotation = 180.0
-center_lobby = [1.0, 18.25]
+center_set = [1.0, 18.25]
 center_dance = [0.52, 0.545]
-character = "claude"
-key_elevation = 35.0                        # the character's key light: above the camera,
-key_azimuth = 25.0                          # turned this far round from it (deg)
-key_energy = 1.5
-motion_blur = 0.5                           # shutter (frames); the reference's whip pans blur
-view_transform = "Khronos PBR Neutral"         # base colours as painted (the toon look), highlights rolled off
-look = "None"
-exposure = 0.0
+
+[render]
+view_transform = "Khronos PBR Neutral"      # base colours as painted (the toon look), highlights rolled off
+motion_blur = 0.5                           # shutter (frames): the reference's whip pans blur
 shadow_pool = "1024"                        # MB: the lobby has 58 shadowed lights
+fast_gi = true
+trace_max_roughness = 0.5
 
 
 # The face rebuilt as 3D anime faces are made (face_rebuild.py, face_textures.py): a clean face surface

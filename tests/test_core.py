@@ -9,7 +9,9 @@ import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from mmdance import config, solver, vmd  # noqa: E402
+from mmdance import config, encode, solver, vmd  # noqa: E402
+sys.path.insert(0, os.path.join(ROOT, 'tools'))
+import facial_vmd  # noqa: E402
 
 
 def write_vmd(path, bones=(), morphs=(), cams=()):
@@ -81,6 +83,44 @@ class TestVmd(unittest.TestCase):
         self.assertEqual(v['morphs'][0][:2], ('まばたき', 10))
         self.assertAlmostEqual(v['morphs'][1][2], 0.5)
         self.assertEqual(len(v['cams']), 2)
+
+    def test_write_morphs_roundtrip(self):
+        path = os.path.join(tempfile.mkdtemp(), 'f.vmd')
+        vmd.write_morphs(path, 'face', [('まばたき', 3, 1.0), ('あ', 4, 0.25)])
+        v = vmd.read_vmd(path)
+        self.assertEqual(v['model'], 'face')
+        self.assertEqual(v['bones'], [])
+        self.assertEqual([m[:2] for m in v['morphs']], [('まばたき', 3), ('あ', 4)])
+        self.assertAlmostEqual(v['morphs'][1][2], 0.25)
+
+    def test_facial_rewrite(self):
+        d = tempfile.mkdtemp()
+        src, out = os.path.join(d, 'in.vmd'), os.path.join(d, 'out.vmd')
+        # a capture that keeps the eyes shut and opens the mouth once
+        vmd.write_morphs(src, 'cap', [('ウィンク', f, 0.9) for f in range(300)] + [('ワ', 0, 0.0), ('ワ', 100, 0.4), ('ワ', 299, 0.0)])
+        facial_vmd.main([src, out, '--blinks', '75,120', '--mouth', 'ワ:あ:2.2:0.75', '--smile', 'にやり:0.65'])
+        v = vmd.read_vmd(out)
+        names = {m[0] for m in v['morphs']}
+        self.assertEqual(names, {'まばたき', 'あ', 'にやり'})          # the capture's eyes are gone
+        blink = facial_vmd.curve(v['morphs'], 'まばたき', 300)
+        self.assertEqual(int((np.diff((blink > 0.9).astype(int)) == 1).sum()), 3)   # blinks at 40, then every 75-120
+        a = facial_vmd.curve(v['morphs'], 'あ', 300)
+        self.assertAlmostEqual(a.max(), 0.75, places=5)              # 0.4 x 2.2 capped
+        smile = facial_vmd.curve(v['morphs'], 'にやり', 300)
+        self.assertAlmostEqual(smile[0], 0.65, places=5)            # mouth closed: the light smile
+        self.assertAlmostEqual(smile[100], 0.0, places=5)           # mouth open: none
+
+
+class TestEncode(unittest.TestCase):
+    def test_parts_switch_frame_folders(self):
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, 'project.toml'), 'w', encoding='utf-8') as f:
+            f.write('[project]\nframe_start = 0\nframe_end = 5\n[paths]\nframes = "a/f_"\n'
+                    '[encode]\nparts = [{ start = 3, frames = "../b/f_" }]\n')
+        files = encode.frame_files(config.load(os.path.join(d, 'project.toml')))
+        self.assertEqual(len(files), 6)
+        self.assertEqual(files[2], os.path.join(os.path.normpath(os.path.join(d, 'a/f_'))) + '0002.png')
+        self.assertEqual(files[3], os.path.normpath(os.path.join(d, '../b/f_')) + '0003.png')
 
 
 class TestSolver(unittest.TestCase):

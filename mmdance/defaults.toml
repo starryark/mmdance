@@ -49,6 +49,11 @@ hands_apart = []               # [{start, end, ramp, gap}]: spread the wrists by
 
 [camera]
 vmd = ""                       # MMD camera motion; "" = a static front camera
+track = ""                     # instead: a camera keyed from a track file (.npz: frames, loc, quat as
+                               # w x y z, lens, sensor in mm), e.g. solved from a reference video
+track_dancer = ""              # with track: key the rig object's place and heading from the track's
+                               # rig_loc_<name> / rig_rotz_<name> ("" = the dancer stays put); keyed
+                               # last, in the stage, after everything that works on the rest pose
 resolution = [1920, 1080]
 clip = [0.02, 200.0]
 # Custom shots replace the MMD camera over a frame range (a camera tracking a look-at target):
@@ -279,9 +284,20 @@ edge_collide = true
 max_push = 0.05
 
 [stage]
-builder = "default"            # "default" (floor + backdrop) or a project module "room.py"
+builder = "default"            # "default" (floor + backdrop), "set" (a set from another .blend,
+                               # [stage.set] below) or a project module "room.py"
                                # defining build(collection, cfg) and optionally colliders(cfg) and
                                # finish(collection, cfg) (run last: the project's lights, look, camera)
+steps = []                     # project files run on the built character before finish(), in order, each
+                               # defining run(cfg, collection): a face rebuild, a prop, sleeves. Paths
+                               # are relative to project.toml, so projects share one file
+textures = {}                  # { image name = "cleaned copy.png" }: swap a texture file of the character
+lining = {}                    # { material = [r, g, b] }: single-layer fabric gets this darker shade of
+                               # its print on the inside (backfaces), seen when it flies up
+key_follow = []                # [elevation, azimuth] degrees: the key sun follows the camera, from above it
+                               # and turned round from it (a toon face stays lit as the dancer turns)
+key_energy = 0.0               # with key_follow: the sun's strength (0 = as in the file)
+key_link = false               # light only the character with the key sun (light linking)
 world = ""                     # world datablock to use; "" = the scene's world (or a new one)
 world_color = [1.0, 0.90, 0.80]
 world_strength = 0.17
@@ -296,13 +312,29 @@ glow_threshold = 0.92
 glow_strength = 0.45
 glow_size = 0.55
 
+[stage.set]                    # builder = "set": a set made in another .blend, appended around the dance
+file = ""                      # the .blend
+collections = []               # the collections to append; [] = all
+world = ""                     # its world to use ("" = keep the stage world)
+scale = 1.0                    # e.g. 0.625 for a real-size set around 1 m characters meant to read as 1.6 m
+rotation = 0.0                 # degrees about Z
+center_set = [0.0, 0.0]        # this floor point of the set (its own metres) ...
+center_dance = [0.0, 0.0]      # ... goes here in the dance (a spot the dance and camera keep clear around)
+
 [render]
 engine = "BLENDER_EEVEE"
 samples = 48
 raytracing = true
+trace_max_roughness = 0.4
+fast_gi = false
+shadow_pool = "512"            # MB of shadow maps; raise for a set with many shadowed lights
+motion_blur = 0.0              # shutter in frames (0.5 suits fast camera whips); 0 = off. Makes EEVEE
+                               # CPU-bound: render with more processes per GPU
 filter_size = 1.1
 view_transform = "Standard"    # toon colours as painted; AgX washes them out ("Khronos PBR Neutral"
                                # keeps them and rolls off a bright set's highlights)
+look = "None"
+exposure = 0.0
 png_compression = 15
 
 [encode]
@@ -311,3 +343,13 @@ preset = "slow"
 tune = "animation"
 audio_bitrate = "256k"
 fade = 1.6                     # seconds of fade-out (picture and sound) at the end
+fade_picture = true            # fade the picture too (false: only the sound)
+song_end = "hold"              # "hold": a song longer than the dance plays on over the last frame;
+                               # "cut": the video ends with the dance, the song cut (and faded) there
+parts = []                     # [{ start = 338, frames = "../chatgpt/render/frames/dw_" }]: from frame
+                               # `start` on, take the frames from another project's render (prefix as
+                               # paths.frames, relative to this project.toml): characters taking turns
+copies = []                    # smaller copies next to the video, e.g.
+                               # { suffix = "_preview_720p", height = 720, crf = 20 } or
+                               # { suffix = "_10MB", height = 720, max_mb = 10, audio_bitrate = "112k" }
+                               # (two-pass to fit under max_mb)

@@ -168,7 +168,8 @@ rigid_boots = true
 rigid_boots_hips = true                     # her leg mesh reaches up to the pelvis
 
 [stage]
-builder = "room.py"
+builder = "room.py"                         # shared with chatgpt_chika and claude_chika_v3
+steps = ["face_shape.py", "hat.py"]         # the jaw and lips reshaped; the red cap (sections below)
 world = "AIG_World"
 sun = "AIG_Sun"                             # direction kept: the face shading driver reads it
 # Furniture placed from her hips in the body track (motion scale 0.0499 vs 0.054 for claude_chika):

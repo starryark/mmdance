@@ -14,12 +14,17 @@ The set is the claude_chika room with its light reworked (see README.md):
 * the set has soft-lit shading that follows the light that arrives (Room_Shade); the dancer keeps
   her cel shading, with a warm sunlit tone where the window sun reaches her;
 * over the song the sun sinks and warms and its strength follows the music (CUES);
-* finish() also gives the single-layer skirt a darker lining and swaps in cleaned textures.
+* desk props sit where the dance leaves room on the desk.
 
 A project stage builder for mmdance (stage.builder = "room.py"): build(collection, cfg) makes the
 set, colliders(cfg) gives the desk and sofa boxes to the cloth/hair simulation, finish(collection,
-cfg) sets the light. The desk and sofa placement come from [stage] desk / sofa in project.toml.
-Needs a character file with the AIG_Toon group (the polished Tripo characters have it).
+cfg) sets the light. The desk, sofa and props are placed from [stage] desk / sofa / props in
+project.toml (motion scales differ a little between characters). Needs a character file with the
+AIG_Toon group (the polished Tripo characters have it).
+
+Shared: chatgpt_chika and claude_chika_v3 use this file too (stage.builder =
+"../deepseek_chika/room.py"). The character's own steps (face, cap, sleeves), cleaned textures and
+lining are run by the stage before finish() (stage.steps, stage.textures, stage.lining).
 """
 import math
 
@@ -34,10 +39,15 @@ BED = (-0.22, 0.62, -0.34, 0.22, 0.48)
 SOFA = (0.84, 1.96, -1.24, -0.82, 0.29)
 
 
+# desk props: where the dance leaves room on this desk (x, y; laptop and lamp also a yaw in degrees)
+PROPS = {'laptop': (0.555, 0.10, -14.0), 'lamp': (0.40, 0.15), 'phone': (0.60, -0.06)}
+
+
 def _place(cfg):
-    global BED, SOFA
+    global BED, SOFA, PROPS
     BED = tuple(cfg.stage.get('desk', BED))
     SOFA = tuple(cfg.stage.get('sofa', SOFA))
+    PROPS = dict(cfg.stage.get('props', PROPS))
 
 
 def colliders(cfg):
@@ -542,7 +552,7 @@ def desk_props(coll, top):
     parts = []
     shell_m, _ = toon('Room_Laptop', (0.52, 0.50, 0.62), (0.80, 0.76, 0.86), rim=0.15)
     screen_m, _ = toon('Room_LaptopScreen', (0.16, 0.16, 0.22), (0.85, 0.85, 0.9), rim=0.05)
-    lx, ly = 0.555, 0.10
+    lx, ly, lyaw = PROPS['laptop']
     base = box('Desk_LaptopBase', coll, -0.085, 0.085, -0.06, 0.06, 0.0, 0.008, shell_m, 0.002)
     lid = box('Desk_LaptopLid', coll, -0.085, 0.085, -0.004, 0.004, 0.0, 0.115, shell_m, 0.002)
     scr = box('Desk_LaptopScreen', coll, -0.078, 0.078, -0.0045, -0.003, 0.008, 0.108, screen_m)
@@ -551,11 +561,11 @@ def desk_props(coll, top):
         o.rotation_euler = (math.radians(-12), 0, 0)
         o.parent = base
     base.location = (lx, ly, top)
-    base.rotation_euler = (0, 0, math.radians(-14))
+    base.rotation_euler = (0, 0, math.radians(lyaw))
     parts += [base, lid, scr]
     green, _ = toon('Room_LampGreen', (0.08, 0.36, 0.20), (0.72, 0.70, 0.80), rim=0.25)
     brass, _ = toon('Room_Brass', (0.86, 0.62, 0.26), (0.78, 0.58, 0.55), rim=0.25)
-    bx, by = 0.40, 0.15
+    bx, by = PROPS['lamp']
     parts.append(box('Desk_LampBase', coll, bx - 0.04, bx + 0.04, by - 0.025, by + 0.025, top, top + 0.012, brass, 0.004))
     parts.append(box('Desk_LampStem', coll, bx - 0.005, bx + 0.005, by - 0.005, by + 0.005, top, top + 0.10, brass))
     bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.026, depth=0.12, location=(bx, by - 0.01, top + 0.115),
@@ -570,8 +580,10 @@ def desk_props(coll, top):
     for pp in shade.data.polygons:
         pp.use_smooth = True
     parts.append(shade)
+    if 'phone' not in PROPS:
+        return parts
     black, _ = toon('Room_Phone', (0.04, 0.04, 0.05), (0.85, 0.85, 0.9), rim=0.3)
-    px, py = 0.60, -0.06
+    px, py = PROPS['phone']
     parts.append(box('Desk_PhoneBase', coll, px - 0.04, px + 0.04, py - 0.045, py + 0.045, top, top + 0.035, black, 0.012, 3, True))
     bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.012, depth=0.10, location=(px, py, top + 0.05),
                                         rotation=(0, math.radians(90), 0))
@@ -849,46 +861,8 @@ def haze(coll):
     return o, dens.outputs[0]
 
 
-def lining(mat_name, tint):
-    """The inside of single-layer fabric (seen when a skirt flies up) in a darker shade of its
-    print instead of the outside print."""
-    m = bpy.data.materials.get(mat_name)
-    if m is None:
-        return
-    nt = m.node_tree
-    g = next(n for n in nt.nodes if n.bl_idname == 'ShaderNodeGroup' and n.node_tree.name == 'AIG_Toon')
-    if nt.nodes.get('Lining_Backfacing'):
-        return
-    src = g.inputs['Base Color'].links[0].from_socket
-    geo = nt.nodes.new('ShaderNodeNewGeometry')
-    geo.name = 'Lining_Backfacing'
-    inner = mix_rgb(nt, 1.0, src, tuple(tint) + (1,), 'MULTIPLY')
-    link(nt, mix_rgb(nt, geo.outputs['Backfacing'], src, inner), g.inputs['Base Color'])
-
-
-def project_module(cfg, name):
-    """Another module of this project folder (face_shape.py, hat.py), loaded by path."""
-    import importlib.util
-    spec = importlib.util.spec_from_file_location('deepseek_' + name, cfg.resolve(name + '.py'))
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
 def finish(coll, cfg):
     """Light the room from its windows (called by the stage after the lights and render settings)."""
-    body = bpy.data.objects[cfg.character.body]
-    if cfg.stage.get('face_shape') and not body.get('face_shaped'):
-        project_module(cfg, 'face_shape').run(cfg, body)
-        body['face_shaped'] = 1                     # once per scene (the stage can be re-run)
-    if cfg.stage.get('hat'):
-        project_module(cfg, 'hat').run(cfg, coll)
-    for name, path in cfg.stage.get('textures', {}).items():       # cleaned copies of the character's textures
-        img = bpy.data.images[name]
-        img.filepath = cfg.resolve(path)
-        img.reload()
-    for name, tint in cfg.stage.get('lining', {}).items():
-        lining(name, tint)
     terms = toon_light_terms()
     face = bpy.data.materials.get(cfg.face.atlas.material) if cfg.face.atlas.material else None
     if face is not None:

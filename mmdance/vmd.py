@@ -42,6 +42,20 @@ def read_vmd(path):
             cams.append((frame, dist, pos, rot, interp, fov, persp))
     return dict(header=header, model=model, bones=bones, morphs=morphs, cams=cams)
 
+def write_morphs(path, model, morphs):
+    """A VMD with morph keys only: morphs = [(name, frame, weight), ...] (a facial track)."""
+    def name(s, n):
+        b = s.encode('shift_jis')
+        return b + b'\0' * (n - len(b))
+    with open(path, 'wb') as f:
+        f.write(b'Vocaloid Motion Data 0002'.ljust(30, b'\0'))
+        f.write(model.encode('shift_jis').ljust(20, b'\0'))
+        f.write(struct.pack('<I', 0))                            # no bone keys
+        f.write(struct.pack('<I', len(morphs)))
+        for n, frame, w in morphs:
+            f.write(name(n, 15) + struct.pack('<If', frame, w))
+        f.write(struct.pack('<4I', 0, 0, 0, 0))                  # camera, light, shadow, IK: none
+
 if __name__ == '__main__':
     import sys; sys.stdout.reconfigure(encoding="utf-8")
     for p in sys.argv[1:]:

@@ -9,16 +9,22 @@ The analysis and the assets live outside the repository, in `Anthropic_Scene/MMD
 (`tools/`, `analysis/`, `audio/`, `source/`, `runpod/`). `project.local.toml` files point at them.
 
 ```
-python -m mmdance build projects/dreamwings/claude/project.toml
-python -m mmdance build projects/dreamwings/chatgpt/project.toml
+python -m mmdance build  projects/dreamwings/claude/project.toml       # ~5 min
+python -m mmdance build  projects/dreamwings/chatgpt/project.toml      # ~2 min
+python -m mmdance render projects/dreamwings/claude/project.toml --start 0 --end 337
+python -m mmdance render projects/dreamwings/chatgpt/project.toml --start 338 --end 452
+python -m mmdance encode projects/dreamwings/claude/project.toml       # the cut, the song, the copies
 ```
+Everything but the camera solve is config: the lobby is `stage.builder = "set"`, the camera
+`camera.track`, the key light `stage.key_follow`, and the characters' own code runs from their
+projects' folders as `stage.steps`. Rendered elsewhere, the frames come back through
+`python -m mmdance pack` (see Render).
 
 | | |
 |---|---|
 | `claude/project.toml` | Claude: claude_chika_v3's character setup (hair locks, gown, hands, repairs, rebuilt face) on the new motion |
 | `chatgpt/project.toml` | ChatGPT: chatgpt_chika's character setup (gown, hair locks, tail, hands, sleeves, wings, atlas face) on the new motion |
-| `claude/face_*.py`, `chatgpt/sleeves.py`, `chatgpt/wings.py` | Copies of those projects' code (repo root paths adjusted for the deeper folder) |
-| `lobby.py` | The stage: the lobby appended and scaled around the dance, the solved camera and the dancer's turn keyed, the character's key light, render settings |
+| `stage.steps` | Claude: `../../claude_chika_v3/face_rebuild.py`; ChatGPT: `../../chatgpt_chika/sleeves.py`, `wings.py`. The originals, not copies |
 | `camera/camera_track.npz` | The camera on the song's timeline, and each rig's location and yaw. It is made by `MMD_DreamWings/tools/assemble_camera.py` and is not in the repository (`*.npz` is ignored) |
 
 ## Timeline
@@ -54,25 +60,32 @@ so the video is the motion's 15.1 s. Claude dances frames 0-337 and ChatGPT 338-
    bridges the jump cut, re-times Claude's last second so the whip pan out ends at the swap, and
    places ChatGPT where the continuing whip lands.
 
-## Stage (`lobby.py`)
-- The characters are 1 m tall, the lobby real size. `Lobby_Root` scales the lobby by 0.625, so
+## Stage (`[stage.set]`, `[render]`)
+- The characters are 1 m tall, the lobby real size. `Set_Root` scales the lobby by 0.625, so
   the characters read as 1.6 m. Point, spot and area lights are scaled by 0.625² to light it the
   same.
 - `tools/place_dance.py` picked the spot: (1.0, 18.25) in the lobby, between the slatted screens
   and the wall planters, turned 180°. The dancer, with a 0.45 m reach, and the camera stay 0.9 m
   clear of everything.
 - The character's key light (`AIG_Sun`, which also drives the painted face's shading) follows
-  the camera, raised 35° and turned 25°. Light linking limits it to the dancer. The lobby's own
-  lights light both.
+  the camera, raised 35° and turned 25° (`stage.key_follow`). Light linking limits it to the
+  dancer (`stage.key_link`). The lobby's own lights light both.
+- The camera (`camera.track`) and the dancer's turn (`camera.track_dancer`) come from
+  `camera/camera_track.npz`, with the near clip at 1 cm for the 15 mm lens.
 - View transform: Khronos PBR Neutral. It keeps the toon colours as painted (AgX washed them out)
   and still rolls off the lobby's highlights. Motion blur is on, with shutter 0.5.
 
 ## Face
 The capture's eye channels read the dancer's squinting grin as closed eyes: ウィンク is above 0.5 on
-90 % of the frames. `tools/clean_face_vmd.py` writes `face_clean.vmd`:
-- eyes open, with natural blinks;
+96 % of its keys (`python -m mmdance vmd face.vmd`). The facial track the builds read is written by
+```
+python -m mmdance facial face.vmd face_clean.vmd --blinks 75,120 --mouth ワ:あ:2.2:0.75 --mouth お:お:2.5:0.5 --smile にやり:0.65
+```
+- eyes open, with natural blinks every 75–120 frames;
 - the capture's mouth openings (ワ, お) amplified;
 - a light smile (にやり) in between.
+
+It writes the `face_clean.vmd` the video was made with, byte for byte.
 
 ## Characters
 Both run their earlier projects' setups with two changes for this dance:
@@ -84,17 +97,20 @@ Both run their earlier projects' setups with two changes for this dance:
   beats.
 
 ## Render
-The two built scenes were packed (`MMD_DreamWings/tools/pack_for_render.py`: images packed, the
-song's preview strip dropped, frames written next to the `.blend`) and rendered with EEVEE on one
-RunPod L40S at 1920 × 1080, 64 samples:
+The two built scenes were packed (`python -m mmdance pack <project.toml> --samples 64`: images
+packed, the song's preview strip dropped, frames written next to the `.blend`) and rendered with
+EEVEE on one RunPod L40S at 1920 × 1080, 64 samples:
 - **Motion blur** (shutter 0.5) makes the render CPU-bound by the scene evaluation: about 21 s a
   frame per Blender process. Nine processes shared the GPU and took about 50 minutes.
 - **The pod** needs `NVIDIA_DRIVER_CAPABILITIES=all` and the EGL/GL/Vulkan client libraries for
-  headless EEVEE (`MMD_DreamWings/runpod/setup_pod.sh`). The processes start 20 s apart; the
-  first one compiles the shaders (`render_job.sh`).
+  headless EEVEE (`tools/remote/setup_linux_gpu.sh`). The processes start 20 s apart; the first
+  one compiles the shaders (`tools/remote/render_job.sh`).
 - **Every frame was checked:** 453 non-empty PNGs, md5-verified after the download.
-- `MMD_DreamWings/tools/encode_final.py` cuts from Claude's frames to ChatGPT's at frame 338 and
-  muxes `audio/song.wav`, fading it over the last 0.25 s. `mmdance encode` handles one project.
+- `python -m mmdance encode projects/dreamwings/claude/project.toml` cuts from Claude's frames to
+  ChatGPT's at frame 338 (`[[encode.parts]]`), ends the song with the dance and fades it over
+  0.25 s (`song_end = "cut"`), and writes the 720p and under-10 MB copies (`encode.copies`). From
+  the pod's frames it writes the released `DreamWings.mp4` byte for byte. The copies differ from
+  the released ones only in bitrate.
 
 ## Limits
 - The characters are anime-proportioned and the reference dancers are not. The framing matches

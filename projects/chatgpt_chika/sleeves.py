@@ -1,7 +1,7 @@
 """Bell-sleeve physics for the ChatGPT character: the sleeves hang from the forearms and swing.
 
-Called from room.finish() when [stage.sleeves] is set, after the physics stage has simulated the
-skirt. Also runnable on a built scene (--until N simulates only the first N frames, for tuning):
+A stage step (stage.steps = ["sleeves.py"]; dreamwings/chatgpt points at this file too), after the
+physics stage has simulated the skirt. Also runnable on a built scene (--until N simulates only the first N frames, for tuning):
 
   blender -b build/ChatGPT_ChikaDance.blend --python sleeves.py -- project.toml [--until N] [--resim]
 
@@ -85,9 +85,7 @@ def skirt_track(cfg, rig, ob, rest, mats, motion_key):
         return None
     caps = physics.build_colliders(cfg, ob, rig)
     boxes = physics.stage_colliders(cfg)
-    sim_key = cfg.key(motion_key, {k: v.tolist() for k, v in lat.items()}, physics.sim_params(cfg.physics), boxes,
-                      [(c[0], c[1].tolist(), c[2].tolist(), c[3], c[4]) for c in caps],
-                      *([physics.sim_params(cfg.tail)] if cfg.tail.enabled else []))
+    sim_key = physics.sim_key(cfg, motion_key, lat, caps, boxes)
     path = cfg.cache(f'sim_{sim_key}.npz')
     if not os.path.exists(path):
         print(f'[sleeves] no skirt simulation {os.path.basename(path)}: sleeves are not kept outside the skirt')
@@ -198,15 +196,10 @@ def bake(cfg, rig, mats, lats, names, sims):
                 put_curve(cbag, dp + '.location', j, frames, locs[ck][:, j], group=n)
 
 
-def run(cfg, until=0, resim=False):
+def run(cfg, coll=None, until=0, resim=False):
     sec = cfg.stage.sleeves
     rig, ob = rig_and_body(cfg)
-    rest = np.array([np.array(rig.data.bones[cfg.bone(n)].matrix_local) for n in TRACK])
-    motion_key = cfg.key(config.file_key(cfg.path('motion.vmd')), cfg.motion.scale, cfg.motion.arm_angle,
-                         cfg.project.frame_start, cfg.project.frame_end, rest.tolist(),
-                         *([cfg.motion.thumb_rest, cfg.motion.hands_apart]
-                           if cfg.motion.thumb_rest or cfg.motion.hands_apart else []))
-    mats = physics.sample_track(cfg, rig, cfg.cache(f'body_track_{motion_key}.npz'), rest)
+    mats, rest, motion_key = physics.body_track(cfg, rig)
     skirt = skirt_track(cfg, rig, ob, rest, mats, motion_key) if sec.get('skirt', True) else None
     boxes = physics.stage_colliders(cfg)
     lats, names, caps = {}, {}, {}

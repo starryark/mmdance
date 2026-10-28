@@ -156,7 +156,8 @@ rigid_boots = true
 rigid_boots_hips = true                     # her leg mesh reaches up to the pelvis
 
 [stage]
-builder = "room.py"
+builder = "../deepseek_chika/room.py"       # the deepseek_chika room and light
+steps = ["sleeves.py", "wings.py"]          # the bell sleeves simulated, the wing beat (sections below)
 world = "AIG_World"
 sun = "AIG_Sun"                             # direction kept: the face shading driver reads it
 # Furniture placed as in deepseek_chika (motion scale 0.0503 here vs 0.0499 there).

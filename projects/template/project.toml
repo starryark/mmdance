@@ -25,8 +25,9 @@ vmd = "source/camera.vmd"                # "" = a static front camera
 file = "source/song.wav"                 # "" = silent video
 
 [face]
-mode = "none"                            # "atlas" for a painted face (see docs/face.md), "shapekeys"
-vmd = ""                                 # facial VMD; "" = morph keys in the motion VMD
+mode = "none"                            # "atlas" for a painted face, "shapekeys" (docs/new-character.md)
+vmd = ""                                 # facial VMD; "" = morph keys in the motion VMD. Check it with
+                                         # `python -m mmdance vmd`; `python -m mmdance facial` rewrites one
 
 # [face.shapekeys]                       # for characters with shape keys (VRoid/VRM, PMX conversions)
 # map = { "まばたき" = "Fcl_EYE_Close", "あ" = "Fcl_MTH_A", "い" = "Fcl_MTH_I", "う" = "Fcl_MTH_U",
@@ -36,6 +37,7 @@ vmd = ""                                 # facial VMD; "" = morph keys in the mo
 enabled = false                          # bone chains through the hair (long hair, ponytails)
 material = ""                            # the hair material
 # rows_z = [...]                         # joint heights, root -> tips: see `inspect`
+# mode = "locks"                         # long hair in separate locks: one chain per lock
 
 [skirt]
 enabled = false                          # bone chains round a skirt / dress
@@ -43,11 +45,18 @@ enabled = false                          # bone chains round a skirt / dress
 # rows_z = [...]                         # waist -> hem
 
 [overskirt]
-enabled = false                          # a second, open outer layer of the gown
+enabled = false                          # a second, open outer layer of the gown (or an apron)
+
+[tail]
+enabled = false                          # a tail that is its own mesh piece
+# seed = [0.0, 0.2, 0.3]                 # a point near it
 
 [hands]
 enabled = false                          # rebuild fused finger blobs (needs a hands-only material)
 material = ""
 
 [stage]
-builder = "default"                      # or "room.py": your own set (see docs/stage.md)
+builder = "default"                      # "set" (a set from another .blend, [stage.set]) or "room.py",
+                                         # your own builder; "../other_project/room.py" shares one
+# steps = ["face_rebuild.py"]            # your own code on the built character, run in order
+# lining = { Skirt_Material = [0.6, 0.6, 0.7] }   # single-layer fabric: a darker inside

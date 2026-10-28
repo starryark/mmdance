@@ -8,7 +8,8 @@ Key facts:
 - Physics: bone chains laid through the mesh (skirt, an outer gown layer or apron, long hair as a curtain or one chain per lock, a tail), a numpy position-based solver (jointed chains with angular limits like MMD rigid-body skirts / DynamicBone, capsule and box colliders, inelastic contacts, an optional low-pass), baked to keyframes.
 - Face: VMD morphs → shape keys, or painted-face expression atlases (Live2D-style lash slide) for image-to-3D characters. A painted face on a sculpted head is better rebuilt as geometry (mouth opening with inside, teeth and tongue; eyes in layers; shape keys keyed from the facial track): project code in projects/claude_chika_v3/face_rebuild.py.
 - Repairs for auto-rigged meshes: rebuilt hands from finger bones (finger joints moved to drawn-hand proportions, thumbs to an MMD hand's rest), hair/cloth seam rip, hair curls with the cloth material, rigid boot weights, cross-side leg weights, unweighted vertices.
-- One project = one project.toml merged over mmdance/defaults.toml; CLI `python -m mmdance new|inspect|vmd|build|stills|render|encode|qa`.
+- One project = one project.toml merged over mmdance/defaults.toml; CLI `python -m mmdance new|inspect|vmd|facial|build|stills|render|encode|pack|qa`.
+- Stage and output: a set appended from another .blend (stage.builder = "set"), a camera keyed from a track file (camera.track, e.g. solved from a reference video), a key light that follows the camera with light linking, motion blur, project code run on the built character (stage.steps, shared between projects by path), a packed scene for a cloud GPU (pack), two projects' renders cut into one video and size-limited copies (encode).
 - Requirements: Blender 5.2+, MMD Tools extension, Python 3.11+ with numpy/scipy/opencv-python/scikit-image/pillow/matplotlib, ffmpeg. Built on Windows 11; rendered on Windows and on a Linux cloud GPU. Used with three Tripo characters and two dances; no assets are distributed.
 
 ## Docs

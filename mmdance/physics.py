@@ -6,7 +6,6 @@ builder's `colliders()`). The simulation result is cached under a key of everyth
 on, so it is recomputed only when the motion, the lattice or the parameters change (or with
 --resim).
 """
-import importlib.util
 import os
 import time
 
@@ -15,7 +14,7 @@ import numpy as np
 
 from . import config
 from . import solver as ps
-from .util import channelbag, hide_others, put_curve, rig_and_body
+from .util import channelbag, hide_others, project_module, put_curve, rig_and_body
 
 SIDES = ('Left', 'Right')
 TRACK = ps.TRACK
@@ -51,13 +50,9 @@ def stage_colliders(cfg):
 
 def load_stage_module(cfg):
     b = cfg.stage.builder
-    if not b or b == 'default':
+    if not b or b in ('default', 'set'):              # built in (stage.py)
         return None
-    path = cfg.resolve(b)
-    spec = importlib.util.spec_from_file_location('mmdance_stage_' + cfg.project.name, path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+    return project_module(cfg, b)
 
 
 def sample_track(cfg, rig, path, rest):
@@ -78,6 +73,24 @@ def sample_track(cfg, rig, path, rest):
     print(f'[physics] sampled body track {time.time() - t0:.1f}s')
     np.savez(path, mats=mats, rest=rest)          # world matrices per frame, and the rest pose
     return mats
+
+
+def body_track(cfg, rig):
+    """(mats, rest, key): world matrices of the TRACK bones per frame, cached, with their rest pose and
+    the cache key. Project code that simulates or keys on the body (sleeves, wings) reads it here."""
+    rest = np.array([np.array(rig.data.bones[cfg.bone(n)].matrix_local) for n in TRACK])
+    key = cfg.key(config.file_key(cfg.path('motion.vmd')), cfg.motion.scale, cfg.motion.arm_angle,
+                  cfg.project.frame_start, cfg.project.frame_end, rest.tolist(),
+                  *([cfg.motion.thumb_rest, cfg.motion.hands_apart]
+                    if cfg.motion.thumb_rest or cfg.motion.hands_apart else []))
+    return sample_track(cfg, rig, cfg.cache(f'body_track_{key}.npz'), rest), rest, key
+
+
+def sim_key(cfg, motion_key, lat, caps, boxes):
+    """Cache key of the simulation: everything it depends on (the post-simulation keys excluded)."""
+    return cfg.key(motion_key, {k: v.tolist() for k, v in lat.items()}, sim_params(cfg.physics), boxes,
+                   [(c[0], c[1].tolist(), c[2].tolist(), c[3], c[4]) for c in caps],
+                   *([sim_params(cfg.tail)] if cfg.tail.enabled else []))
 
 
 def measure_radius(cfg, ob, bone, a, b, pct=70):
@@ -420,21 +433,13 @@ def bake(cfg, rig, mats, rest, sims, L):
 def run(cfg):
     rig, ob = rig_and_body(cfg)
     lat = dict(np.load(cfg.cache('lattice.npz'), allow_pickle=True))
-    if not any(k in lat for k in ('sk_pts', 'hr_pts')):
-        print('[physics] no skirt or hair lattice: nothing to simulate')
+    if not any(k in lat for k in ('sk_pts', 'hr_pts', 'tl_pts')):
+        print('[physics] no skirt, hair or tail lattice: nothing to simulate')
         return
-    rest = np.array([np.array(rig.data.bones[cfg.bone(n)].matrix_local) for n in TRACK])
-    motion_key = cfg.key(config.file_key(cfg.path('motion.vmd')), cfg.motion.scale, cfg.motion.arm_angle,
-                         cfg.project.frame_start, cfg.project.frame_end, rest.tolist(),
-                         *([cfg.motion.thumb_rest, cfg.motion.hands_apart]
-                           if cfg.motion.thumb_rest or cfg.motion.hands_apart else []))
-    mats = sample_track(cfg, rig, cfg.cache(f'body_track_{motion_key}.npz'), rest)
+    mats, rest, motion_key = body_track(cfg, rig)
     caps = build_colliders(cfg, ob, rig)
     boxes = stage_colliders(cfg)
-    sim_key = cfg.key(motion_key, {k: v.tolist() for k, v in lat.items()}, sim_params(cfg.physics), boxes,
-                      [(c[0], c[1].tolist(), c[2].tolist(), c[3], c[4]) for c in caps],
-                      *([sim_params(cfg.tail)] if cfg.tail.enabled else []))
-    path = cfg.cache(f'sim_{sim_key}.npz')
+    path = cfg.cache(f'sim_{sim_key(cfg, motion_key, lat, caps, boxes)}.npz')
     t0 = time.time()
     if os.path.exists(path) and not cfg.flags.get('resim') and not cfg.flags.get('until'):
         d = np.load(path)

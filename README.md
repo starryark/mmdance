@@ -72,6 +72,12 @@ hair physics, animates the face, and renders with the original camera and music.
   - vertices left without weights.
 - **Stage, lighting, render** (EEVEE), resumable parallel rendering, and encoding with the song.
   Picture and sound fade out together.
+  - A set from another `.blend` scaled around the dance, a camera keyed from a track (e.g.
+    solved from a reference video), a key light that follows the camera, motion blur.
+  - Project code of your own on the built character (a rebuilt face, a prop, sleeves), shared
+    between projects by path.
+  - A packed copy of the scene for a cloud GPU, two characters' renders cut into one video, and
+    copies for sharing.
 
 Everything is generated from your untouched character file by `build.py`. Every stage caches its
 results, keyed by its inputs, so a rebuild only recomputes what changed.
@@ -137,13 +143,13 @@ committed. See [docs/new-character.md](docs/new-character.md) for the walkthroug
 |---|---|
 | `build.py` | Blender entry point: runs the stages motion → camera → rig → physics → face → stage and saves the scene |
 | `mmdance/` | The pipeline: `motion` (retarget), `camera`, `rig` (chains, weights, repairs), `layers` (gown layer split), `physics` + `solver` (simulation and bake), `face` + `face_atlas`, `hands` + `hand_sdf`, `stage`, `encode`, `config`, `vmd` (parser) |
-| `tools/` | `inspect_character`, `stills` (check renders), `physics_qa` (motion / hem-lag metrics), `plot_character` |
+| `tools/` | `inspect_character`, `stills` (check renders), `physics_qa` (motion / hem-lag metrics), `plot_character`, `facial_vmd` (rewrite a facial track), `pack` (a copy to render elsewhere), `remote/` (a Linux GPU render machine) |
 | `projects/template/` | Starting point for a new project |
 | `projects/claude_chika/` | The full example: config, the room stage builder, notes and limits |
 | `projects/deepseek_chika/` | A second character on the same dance: apron layer, tail chain, shared-material hands, a skirt texture cleanup, and the room lit by sunlight through its windows |
 | `projects/chatgpt_chika/` | A third character: wings, tail and bell sleeves (sleeve simulation and wing beat as project code), on a model whose parts were repaired first |
 | `projects/claude_chika_v3/` | The example redone: hair per lock, a calmer gown, finger joints, the cap prop, and the face rebuilt as geometry (mouth, layered eyes, shape keys) |
-| `projects/dreamwings/` | A second dance with two characters taking turns: a set appended from another `.blend`, a camera keyed from a solved track, light linking, motion blur |
+| `projects/dreamwings/` | A second dance with two characters taking turns, config only: a set appended from another `.blend`, a camera from a solved track, a key light following it, motion blur, the two renders cut into one video |
 | `tests/` | Unit tests that run in system Python (`python -m unittest`) |
 
 ## Assets and licence
@@ -221,8 +227,8 @@ the hands' material slot, weighted with joint blends.
 **Does it run headless or on a render server?**
 Yes. Everything runs through `blender -b`. Builds have been run on Windows 11. EEVEE renders
 have run on Windows 11 and on a Linux cloud GPU (an L40S on RunPod), from a packed copy of the
-built scene. Headless EEVEE on Linux needs the driver's graphics libraries; see
-[rendering elsewhere](docs/new-character.md#5-render). `render.engine = "CYCLES"` is accepted but
+built scene (`python -m mmdance pack`). Headless EEVEE on Linux needs the driver's graphics
+libraries; see [rendering elsewhere](docs/new-character.md#5-render) and `tools/remote`. `render.engine = "CYCLES"` is accepted but
 untested, and the example's toon shaders are EEVEE-only.
 
 **How long does it take?**

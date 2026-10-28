@@ -24,9 +24,9 @@ python -m mmdance stills projects/chatgpt_chika/project.toml 400,1000,1300 cam,f
 | | |
 |---|---|
 | `project.toml` | Skirt (the dress material only), hair locks, tail, hands, repairs, the face guides, sleeve and wing settings |
-| `room.py` | The deepseek_chika room and light. `finish()` also runs the two modules below |
-| `sleeves.py` | Simulates the bell sleeves on the model's `Sleeve_L/R_cc_k` chains with mmdance's solver and bakes them. Runs on a built scene too (`--until N`) |
-| `wings.py` | A slow wing beat on `Wing_L/R_0/1`, and a sweep back against chest turns |
+| `stage.builder` | `../deepseek_chika/room.py`: that project's room and light, shared, not copied |
+| `sleeves.py` | A stage step: simulates the bell sleeves on the model's `Sleeve_L/R_cc_k` chains with mmdance's solver and bakes them. Runs on a built scene too (`--until N`) |
+| `wings.py` | A stage step: a slow wing beat on `Wing_L/R_0/1`, and a sweep back against chest turns |
 
 ## What the model needed (fixed in the optimized model, not here)
 - Its tail was weighted to her thighs and left toe. Its wings were weighted to the arms, shoulder

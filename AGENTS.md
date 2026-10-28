@@ -6,13 +6,16 @@ facial animation, stage, render and encode. Read README.md first, then docs/how-
 ## Running things
 - Everything goes through `python -m mmdance <command> <project.toml>`:
   - `new`, `inspect`, `vmd`: start a project and look at a character or VMD;
-  - `build`, `stills`, `render`, `encode`, `qa`: make and check the video.
+  - `facial`: rewrite a facial VMD that doesn't fit the character (capture-made tracks);
+  - `build`, `stills`, `render`, `encode`, `qa`: make and check the video;
+  - `pack`: a self-contained copy of the built scene, to render on another machine
+    (`tools/remote`).
 - The Blender side runs as `blender -b <character.blend> --python build.py -- <project.toml> [flags]`.
   The CLI finds Blender via `$BLENDER`, `tools.blender`, `PATH`, or the standard install folders.
 - Two Pythons are involved. Modules that import `bpy` (`motion`, `camera`, `rig`, `layers`,
-  `physics`, `face`, `hands`, `stage`, `util`, `tools/stills.py`, `tools/inspect_character.py`)
-  run only inside Blender. `config`, `vmd`, `solver`, `encode`, `face_atlas`, `hand_sdf` and the
-  QA/plot tools run in system Python. `face_atlas.py` and `hand_sdf.py` are launched from Blender
+  `physics`, `face`, `hands`, `stage`, `util`, `tools/stills.py`, `tools/inspect_character.py`,
+  `tools/pack.py`) run only inside Blender. `config`, `vmd`, `solver`, `encode`, `face_atlas`,
+  `hand_sdf`, `tools/facial_vmd.py` and the QA/plot tools run in system Python. `face_atlas.py` and `hand_sdf.py` are launched from Blender
   as subprocesses (`tools.python`) because Blender's Python lacks opencv and scikit-image.
 - `--until N` simulates N frames only (fast physics iteration). `--stages a,b` runs a subset.
   `--resim` and `--resample` force recomputation of cached results.
@@ -54,9 +57,11 @@ did not change.
   it is set (see `face.atlas_key`, `physics.sim_params`, `thumb_rest` in the body-track key), so
   other projects keep their caches; keys applied after a step (`smooth_frames`) stay out of it.
 - **Character-specific code:** stage builders and the like live in the project folder and are
-  loaded through config (`stage.builder = "room.py"`), not in `mmdance/`. A builder's
-  `finish(collection, cfg)` runs last and is where project code on the built character goes (face
-  rebuild, sleeves, wings, a solved camera).
+  loaded through config (`stage.builder = "room.py"`, `stage.steps = ["face_rebuild.py"]`), not in
+  `mmdance/`. A step defines `run(cfg, collection)` and reads the body track and simulation
+  through `physics.body_track()` / `physics.sim_key()`. Once a second project needs the same
+  thing from its own code (a set from a `.blend`, a camera track, lining, motion blur), move it
+  into the engine behind an opt-in config key, as those were.
 - **Style:** match the surrounding code (numpy-vectorised, short docstrings saying what and why,
   comments only where the reason isn't obvious).
 
@@ -78,6 +83,10 @@ did not change.
   `--python-exit-code 1`. `mmdance build` passes it; pass it in your own Blender commands too,
   or a failed stage looks like success.
 - **`--until N` never writes the simulation cache**, so a partial run cannot pass for the full one.
+- **Keep the rig object at the origin until the stage.** The rig stage joins the rebuilt hands into
+  the body through world matrices. Keyed earlier, a dancer placed 4 m away got her hands 4 m from
+  her body, and the colliders measured from them. Object-level keys on the rig
+  (`camera.track_dancer`) go on last, in the stage.
 - **The toon face's shading follows the key sun** through a driver that reads the sun's
   `rotation_euler` x and z. Animate that sun in XYZ Euler with y = 0.
 - **Scaling a set** (an appended `.blend`) by s: point, spot and area light energy goes by s²,
@@ -86,9 +95,11 @@ did not change.
   `NVIDIA_DRIVER_CAPABILITIES=all`, plus the EGL/GL/Vulkan client packages.
 - **Facial tracks from motion capture can be wrong** (a squint read as closed eyes). Check
   `python -m mmdance vmd <facial.vmd>` before blaming the face code.
-- **Project code is copied, not shared, between projects.** `projects/dreamwings/claude/face_*.py`
-  and `projects/dreamwings/chatgpt/{sleeves,wings}.py` are copies of claude_chika_v3's and
-  chatgpt_chika's, with a deeper `sys.path` to the repo root. A fix to one belongs in the other.
+- **Share project code by path, never by copy.** `stage.builder`, `stage.steps` and
+  `encode.parts` take paths relative to `project.toml`, so a project points at another's file
+  (`../deepseek_chika/room.py`). Such a file finds its own siblings from `__file__`, not from
+  `cfg.resolve` (that is the project using it). Copies drifted apart before: three rooms and two
+  face rebuilds.
 
 ## Never commit
 `.blend`, `.vmd`, `.pmx`, audio, video, images, caches, renders or `*.local.toml`. The

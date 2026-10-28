@@ -3,11 +3,15 @@
   python -m mmdance encode project.toml [out.mp4]
 
 When the song runs longer than the motion, the last frame is held and picture and sound fade out
-together at the end instead of cutting the music off.
+together at the end instead of cutting the music off (`encode.song_end = "cut"` ends at the last
+frame instead). `[[encode.parts]]` take the frames from another project's render from a frame on
+(two characters taking turns), and `encode.copies` writes smaller copies for sharing next to it.
 """
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import wave
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -23,44 +27,101 @@ def audio_length(path):
     return float(out.stdout.strip())
 
 
+def frame_files(cfg):
+    """The PNG of every frame: this project's render, or a part's from its start frame on."""
+    def prefix_of(p):
+        full = cfg.resolve(p)
+        return full + os.sep if p.endswith(('/', '\\')) else full
+    f0, f1 = cfg.project.frame_start, cfg.project.frame_end
+    parts = sorted(cfg.encode.parts, key=lambda p: p['start'])
+    out = []
+    for f in range(f0, f1 + 1):
+        src = cfg.paths.frames
+        for p in parts:
+            if f >= p['start']:
+                src = p['frames']
+        out.append(f'{prefix_of(src)}{f:04d}.png')
+    return out
+
+
+def copy(ffmpeg, e, src, out, c, duration):
+    """A smaller copy: scaled to `height`, at `crf` or two-pass to fit under `max_mb`."""
+    vf = ['-vf', f'scale=-2:{c["height"]}:flags=lanczos'] if c.get('height') else []
+    common = ['-c:v', 'libx264', '-preset', e.preset, '-tune', e.tune, '-pix_fmt', 'yuv420p']
+    audio = ['-c:a', 'aac', '-b:a', c.get('audio_bitrate', '128k'), '-movflags', '+faststart']
+    if c.get('max_mb'):
+        akbps = int(c.get('audio_bitrate', '128k').rstrip('k'))
+        vkbps = int(c['max_mb'] * 8000 * 0.96 / duration - akbps)       # 4 % headroom for the container
+        with tempfile.TemporaryDirectory() as tmp:
+            log = os.path.join(tmp, 'pass')
+            for n, tail in ((1, ['-an', '-f', 'mp4', os.devnull]), (2, audio + [out])):
+                subprocess.run([ffmpeg, '-y', '-v', 'error', '-i', src] + vf + common +
+                               ['-b:v', f'{vkbps}k', '-pass', str(n), '-passlogfile', log] + tail, check=True)
+    else:
+        subprocess.run([ffmpeg, '-y', '-v', 'error', '-i', src] + vf + common + ['-crf', str(c.get('crf', 20))] +
+                       audio + [out], check=True)
+    print('wrote', out, f'{os.path.getsize(out) / 1e6:.2f} MB')
+
+
 def main(cfg_path, out=None):
     cfg = config.load(cfg_path)
     if cfg.project.frame_end < 0:
         cfg.project.frame_end = max(b[1] for b in vmd.read_vmd(cfg.path('motion.vmd'))['bones'])
-    prefix = cfg.path('paths.frames')
-    if cfg.paths.frames.endswith(('/', '\\')):
-        prefix += os.sep
-    folder, stem = os.path.dirname(prefix), os.path.basename(prefix)
-    f0, f1, fps = cfg.project.frame_start, cfg.project.frame_end, cfg.project.fps
-    names = [f'{stem}{f:04d}.png' for f in range(f0, f1 + 1)]
-    missing = [n for n in names if not os.path.exists(os.path.join(folder, n))]
-    small = [n for n in names if n not in missing and os.path.getsize(os.path.join(folder, n)) < 1000]   # placeholders
+    f0, fps = cfg.project.frame_start, cfg.project.fps
+    files = frame_files(cfg)
+    missing = [p for p in files if not os.path.exists(p)]
+    small = [p for p in files if p not in missing and os.path.getsize(p) < 1000]   # placeholders
     if missing or small:
-        sys.exit(f'frames incomplete in {folder}: {len(missing)} missing {missing[:5]}, '
+        sys.exit(f'frames incomplete: {len(missing)} missing {missing[:5]}, '
                  f'{len(small)} placeholders of unfinished/crashed renders {small[:5]}')
     out = out or cfg.path('paths.video')
     os.makedirs(os.path.dirname(out), exist_ok=True)
     e = cfg.encode
-    video_len = len(names) / fps
-    cmd = [cfg.tools.ffmpeg, '-y', '-framerate', str(fps), '-start_number', str(f0), '-i', os.path.join(folder, stem + '%04d.png')]
+    video_len = len(files) / fps
+    tmp = None
+    if cfg.encode.parts:                     # one numbered sequence from several folders (links, else copies)
+        tmp = tempfile.mkdtemp(prefix='mmdance_enc_')
+        for f, src in zip(range(f0, f0 + len(files)), files):
+            dst = os.path.join(tmp, f'f_{f:04d}.png')
+            try:
+                os.link(src, dst)
+            except OSError:
+                shutil.copy(src, dst)
+        pattern = os.path.join(tmp, 'f_%04d.png')
+    else:
+        prefix = cfg.path('paths.frames')
+        if cfg.paths.frames.endswith(('/', '\\')):
+            prefix += os.sep
+        pattern = os.path.join(os.path.dirname(prefix), os.path.basename(prefix) + '%04d.png')
+    cmd = [cfg.tools.ffmpeg, '-y', '-framerate', str(fps), '-start_number', str(f0), '-i', pattern]
     song = cfg.path('audio.file')
     if song:
         audio_len = audio_length(song)
-        total = max(audio_len, video_len)
-        hold = max(0.0, audio_len - video_len)
+        total = max(audio_len, video_len) if e.song_end == 'hold' else video_len
+        hold = max(0.0, total - video_len)
         fade_start = max(0.0, total - e.fade)
+        vfade = f',fade=t=out:st={fade_start:.3f}:d={e.fade}' if e.fade_picture else ''
+        trim = f'atrim=0:{total:.4f},' if total < audio_len else ''
         cmd += ['-i', song, '-filter_complex',
-                f'[0:v]tpad=stop_mode=clone:stop_duration={hold:.3f},fade=t=out:st={fade_start:.3f}:d={e.fade}[v];'
-                f'[1:a]afade=t=out:st={fade_start:.3f}:d={e.fade}[a]',
+                f'[0:v]tpad=stop_mode=clone:stop_duration={hold:.3f}{vfade}[v];'
+                f'[1:a]{trim}afade=t=out:st={fade_start:.3f}:d={e.fade}[a]',
                 '-map', '[v]', '-map', '[a]', '-c:a', 'aac', '-b:a', e.audio_bitrate, '-t', f'{total:.3f}']
     else:
-        audio_len, hold = 0.0, 0.0
-        cmd += ['-vf', f'fade=t=out:st={max(0.0, video_len - e.fade):.3f}:d={e.fade}']
+        audio_len, hold, total = 0.0, 0.0, video_len
+        if e.fade_picture:
+            cmd += ['-vf', f'fade=t=out:st={max(0.0, video_len - e.fade):.3f}:d={e.fade}']
     cmd += ['-c:v', 'libx264', '-preset', e.preset, '-crf', str(e.crf), '-tune', e.tune, '-pix_fmt', 'yuv420p',
             '-profile:v', 'high', '-r', str(fps), '-movflags', '+faststart', out]
     print(' '.join(cmd))
-    subprocess.run(cmd, check=True)
-    print('wrote', out, f'({len(names)} frames, video {video_len:.2f}s + hold {hold:.2f}s, audio {audio_len:.2f}s)')
+    try:
+        subprocess.run(cmd, check=True)
+    finally:
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+    print('wrote', out, f'({len(files)} frames, video {video_len:.2f}s + hold {hold:.2f}s, audio {audio_len:.2f}s)')
+    stem, ext = os.path.splitext(out)
+    for c in e.copies:
+        copy(cfg.tools.ffmpeg, e, out, stem + c['suffix'] + ext, c, total)
 
 
 if __name__ == '__main__':

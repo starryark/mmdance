@@ -7,6 +7,8 @@
   stills   <project.toml> <frames> [views] [size]   quick EEVEE stills of the built scene
   render   <project.toml> [--jobs N] [--start F] [--end F]
   encode   <project.toml> [out.mp4]
+  pack     <project.toml> [out.blend] [--samples N]   self-contained copy of the built scene, to render elsewhere
+  facial   <in.vmd> <out.vmd> [options]   rewrite a facial track (tools/facial_vmd.py -h)
   qa       <project.toml>                  physics checks on the cached simulation
 """
 import os
@@ -77,6 +79,18 @@ def cmd_stills(args):
          os.path.abspath(args[0]), out] + args[1:])
 
 
+def cmd_pack(args):
+    cfg = config.load(args[0])
+    blend = cfg.path('paths.blend')
+    extra = []
+    if '--samples' in args:
+        i = args.index('--samples')
+        extra, args = args[i:i + 2], args[:i] + args[i + 2:]
+    out = os.path.abspath(args[1]) if len(args) > 1 else os.path.join(os.path.dirname(blend), 'pack', os.path.basename(blend))
+    run([blender(cfg), '-b', blend, '--python-exit-code', '1', '--python', os.path.join(ROOT, 'tools', 'pack.py'), '--',
+         os.path.abspath(args[0]), out] + extra)
+
+
 def cmd_inspect(args):
     out = args[1] if len(args) > 1 else os.path.join(os.getcwd(), 'inspect')
     os.makedirs(out, exist_ok=True)
@@ -102,7 +116,8 @@ def run(cmd):
 
 
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] not in ('new', 'inspect', 'vmd', 'build', 'stills', 'render', 'encode', 'qa'):
+    if len(sys.argv) < 3 or sys.argv[1] not in ('new', 'inspect', 'vmd', 'build', 'stills', 'render', 'encode', 'pack',
+                                                'facial', 'qa'):
         sys.exit(__doc__)
     c, args = sys.argv[1], sys.argv[2:]
     if c == 'encode':
@@ -110,6 +125,8 @@ def main():
         encode.main(*args[:2])
     elif c == 'vmd':
         run([sys.executable, os.path.join(ROOT, 'mmdance', 'vmd.py')] + args)
+    elif c == 'facial':
+        run([sys.executable, os.path.join(ROOT, 'tools', 'facial_vmd.py')] + args)
     elif c == 'qa':
         run([sys.executable, os.path.join(ROOT, 'tools', 'physics_qa.py')] + args)
     else:

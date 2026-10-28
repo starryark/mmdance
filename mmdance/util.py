@@ -1,6 +1,22 @@
 """Blender-side helpers shared by the stages (run inside Blender)."""
+import hashlib
+import importlib.util
+import os
+
 import numpy as np
 import bpy
+
+
+def project_module(cfg, path):
+    """A Python file named in the config (relative to project.toml, e.g. "room.py" or
+    "../other_project/hat.py"), imported by path. Projects share code by pointing at one file."""
+    full = cfg.resolve(path)
+    tag = hashlib.sha1(full.encode()).hexdigest()[:8]
+    name = 'mmdance_project_' + os.path.splitext(os.path.basename(full))[0] + '_' + tag
+    spec = importlib.util.spec_from_file_location(name, full)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def new_action(obj, name, id_type='OBJECT', id_data=None):

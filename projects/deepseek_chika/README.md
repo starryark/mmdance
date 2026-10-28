@@ -24,9 +24,9 @@ python -m mmdance encode projects/deepseek_chika/project.toml
 | | |
 |---|---|
 | `project.toml` | Everything character- and dance-specific: lattice heights, the apron and tail, the measured face guides, the repairs, the intro shot, furniture placed for this motion scale |
-| `room.py` | The claude_chika room with real window openings, soft-lit set shading, sunbeams in haze and lighting cues that follow the song (stage builder with `finish()`) |
+| `room.py` | The claude_chika room with real window openings, soft-lit set shading, sunbeams in haze and lighting cues that follow the song (stage builder with `finish()`). chatgpt_chika and claude_chika_v3 use it too |
 | `skirt_texture.py`, `export_skirt_uv.py` | Redraw the skirt's blue front panel in the body texture |
-| `hat.py` | The red cap of the original: on the desk, picked up, worn, taken off and thrown into the lens (called from `room.py`) |
+| `hat.py` | The red cap of the original: on the desk, picked up, worn, taken off and thrown into the lens (a stage step; claude_chika_v3 uses it too) |
 | `face_shape.py` | Reshapes the jaw and lips in depth only, so the front-projected face painting holds from every angle |
 
 ## Model repairs (Tripo's rig and mesh)
