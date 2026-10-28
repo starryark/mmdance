@@ -5,8 +5,10 @@ abstract: >-
   A headless, config-driven Blender pipeline that retargets MikuMikuDance (MMD) VMD dance motion,
   camera and facial tracks onto Mixamo-rigged characters (Tripo, Meshy, Mixamo, AccuRig or custom
   rigs), simulates and bakes skirt and hair physics, animates faces through shape keys or
-  painted-face expression atlases, builds a stage, renders with EEVEE and encodes the video with
-  the song.
+  painted-face expression atlases, builds a stage or appends a set, keys a camera from a track
+  solved from reference footage, renders with EEVEE (locally or on a cloud GPU) and encodes the
+  video with the song. Every step is cached under a key of its inputs, so productions rebuild
+  reproducibly.
 type: software
 authors:
   - family-names: Liu
@@ -14,8 +16,8 @@ authors:
 repository-code: "https://github.com/starryark/mmdance"
 url: "https://liuyangyi.com/mmdance/"
 license: MIT
-version: 0.1.0
-date-released: "2026-10-26"
+version: 0.2.0
+date-released: "2026-10-28"
 keywords:
   - MMD
   - MikuMikuDance
@@ -28,3 +30,10 @@ keywords:
   - facial animation
   - Tripo
   - Meshy
+  - AI-generated 3D characters
+  - image-to-3D
+  - dance video
+  - camera tracking
+  - EEVEE
+  - headless rendering
+  - reproducible pipeline

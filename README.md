@@ -6,10 +6,12 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](requirements.txt)
 
 **mmdance makes a Mixamo-rigged character perform a MikuMikuDance (MMD) dance in Blender.** It
-works with characters from Tripo, Meshy, Mixamo or AccuRig, or your own rig mapped by bone name.
-You give it the character's `.blend` and an MMD motion package: the VMD dance motion, the VMD
-camera, the facial VMD and the song. It builds the animated scene and renders a finished 1080p
-video, headless, from one config file.
+works with AI-generated (image-to-3D) characters from Tripo or Meshy, with Mixamo and AccuRig
+rigs, or with your own rig mapped by bone name. You give it the character's `.blend` and an MMD
+motion package: the VMD dance motion, the VMD camera, the facial VMD and the song. It builds the
+animated scene and renders a finished 1080p video, headless, from one config file. Each step is
+cached under a key of its inputs, so a rebuild recomputes only what changed and reproduces the
+rest.
 
 ## Demo
 
@@ -220,15 +222,47 @@ there. Without any `camera.vmd`, a front camera follows the dancer. A stage buil
 a camera of its own: [projects/dreamwings](projects/dreamwings) keys one solved from the dance's
 reference video.
 
+**Can I recreate a dance video, with the camera moves of the reference footage?**
+- `camera.track` keys the camera on every frame from a track file: an `.npz` with frames,
+  location, quaternion, lens and sensor. The track itself is solved outside mmdance, for example
+  from the reference video.
+- `camera.track_dancer` turns the dancer with it, for a motion capture that kept her facing the
+  lens while the real camera went round her.
+- [projects/dreamwings](projects/dreamwings) recreates a 15 s meme this way, on a set appended
+  from another `.blend` (`stage.builder = "set"`), with motion blur.
+
+**Can two characters dance in one video?**
+They can take turns. Give each its own project on the same frames, camera and song, and render
+both. In the project that encodes, `[[encode.parts]]` switches to the other's frames from a given
+frame on; DreamWings cuts from Claude to ChatGPT in the middle of a whip pan. A build has one
+character, so both on screen at once is not supported.
+
+**My character has wings, sleeves or a tail.**
+- A tail that is its own mesh piece gets a bone chain: `[tail] enabled = true` with a `seed`
+  point near it, and `sway` for a slow swish on top of the physics.
+- Anything else is project code run on the built character (`stage.steps`).
+  [projects/chatgpt_chika](projects/chatgpt_chika) simulates bell sleeves (`sleeves.py`) and beats
+  wings (`wings.py`) that way, reading the body track and the simulation through
+  `physics.body_track()` and `physics.sim_key()`.
+
 **My generated character's hands are fused blobs.**
 `[hands] enabled = true` rebuilds them from the finger bones (implicit surface + marching cubes) in
 the hands' material slot, weighted with joint blends.
 
-**Does it run headless or on a render server?**
+**Is the output reproducible?**
+Yes, by design. Each stage caches its results under a key of its inputs, so a rebuild recomputes
+only what changed. The reference production rebuilds to the same caches and the same frames (±1
+from the GPU). From the frames, `encode` remakes the released DreamWings video byte for byte, and
+from the released videos the 720p and 10 MB copies of both productions. [AGENTS.md](AGENTS.md)
+has the regression standard.
+
+**Does it run headless, on a render server or a cloud GPU?**
 Yes. Everything runs through `blender -b`. Builds have been run on Windows 11. EEVEE renders
 have run on Windows 11 and on a Linux cloud GPU (an L40S on RunPod), from a packed copy of the
 built scene (`python -m mmdance pack`). Headless EEVEE on Linux needs the driver's graphics
-libraries; see [rendering elsewhere](docs/new-character.md#5-render) and `tools/remote`. `render.engine = "CYCLES"` is accepted but
+libraries: `tools/remote/setup_linux_gpu.sh` installs them, and `tools/remote/gpu_check.py` tells
+whether EEVEE got the GPU or fell back to software (`llvmpipe`). See
+[rendering elsewhere](docs/new-character.md#5-render). `render.engine = "CYCLES"` is accepted but
 untested, and the example's toon shaders are EEVEE-only.
 
 **How long does it take?**
@@ -240,6 +274,9 @@ For the 94 s example on the development machine:
 | Rebuild from cache | about 4 min |
 | Render at 1080p with two Blender processes | about 2 h |
 | Encode | under a minute |
+
+Motion blur makes EEVEE CPU-bound. The 15 s DreamWings clip took about 21 s a frame per Blender
+process, and about 50 minutes with nine processes sharing one cloud L40S.
 
 **Where do MMD motions come from, and can I publish the result?**
 Motion authors share packages on sites such as BowlRoll and on niconico. Each package has its own

@@ -1,15 +1,16 @@
 ---
 title: "mmdance: MMD dances on any Mixamo-rigged Blender character"
-description: "Open-source Blender pipeline that retargets MikuMikuDance (VMD) dance motion, camera and facial tracks onto Tripo, Meshy or Mixamo characters, with skirt and hair physics, render and video."
+description: "Open-source Blender pipeline: AI-generated (Tripo, Meshy) or Mixamo characters dance MMD (VMD) motions, with skirt and hair physics, faces, camera and video."
 image: /media/claude-chika-kick.jpg
 ---
 
 **mmdance** makes a Mixamo-rigged character perform a **MikuMikuDance (MMD)** dance in
-**Blender**. It works with characters from Tripo, Meshy, Mixamo or AccuRig, or your own rig mapped by
-bone name. You give it the character's `.blend` and an MMD motion package: the VMD dance, the VMD
-camera, the facial VMD and the song. It retargets the motion to your rig, simulates the skirt and
-hair, animates the face, and renders a finished video with the original camera and music. It runs
-headless, and everything is set in one config file. Code:
+**Blender**. It works with AI-generated (image-to-3D) characters from Tripo or Meshy, with Mixamo
+and AccuRig rigs, or with your own rig mapped by bone name. You give it the character's `.blend`
+and an MMD motion package: the VMD dance, the VMD camera, the facial VMD and the song. It retargets
+the motion to your rig, simulates the skirt and hair, animates the face, and renders a finished
+video with the original camera and music. It runs headless, everything is set in one config file,
+and every step is cached by its inputs, so a production rebuilds reproducibly. Code:
 **[github.com/starryark/mmdance](https://github.com/starryark/mmdance)** (MIT).
 
 [![A Tripo-generated anime character with long orange hair dances an MMD motion in Blender, kicking one leg out while her simulated white and black ball gown flares](media/claude-chika-kick.jpg)](https://github.com/starryark/mmdance#demo)
@@ -38,6 +39,12 @@ from the reference video.*
   - rigid boot weights;
   - cross-side leg weights cleaned up.
 - **Stage, EEVEE render** (resumable, parallel) and **video encoding** with the song.
+- **Recreating a dance video:** a camera keyed from a track solved from the reference footage, a
+  set appended from another `.blend`, motion blur, and two characters taking turns in one video.
+- **Rendering elsewhere:** a packed, self-contained copy of the scene, and scripts for headless
+  EEVEE on a Linux cloud GPU (RunPod).
+- **Your own code on the built character** (a rebuilt face, sleeves, wings, a prop), shared
+  between projects by path.
 
 ## Quick start
 ```
@@ -79,6 +86,17 @@ Map the VMD morphs (まばたき, あ, い, う, え, お, ...) to shape keys wi
 or use `face.mode = "atlas"` for a painted face texture. A painted face on a sculpted head is
 better rebuilt as geometry, with a mouth opening and eyes in layers; see
 [A new character](new-character.html).
+
+**Can I recreate a dance video with the camera moves of the reference footage?**
+Yes: `camera.track` keys the camera on every frame from a track file (solved outside mmdance, for
+example from the reference video). The
+[DreamWings project](https://github.com/starryark/mmdance/tree/main/projects/dreamwings) recreates
+a 15 s meme this way, with two characters taking turns on a set from another `.blend`.
+
+**Can it render on a cloud GPU?**
+Yes. `python -m mmdance pack` writes a self-contained copy of the built scene; the scripts in
+`tools/remote` set up headless EEVEE on a Linux GPU, check that it got the GPU, and split the
+frames over several Blender processes. See [rendering elsewhere](new-character.html#5-render).
 
 **Status.** Built for, and verified against, one 94 s production with a Tripo-generated character,
 which it reproduces exactly. Since then it has made videos with three Tripo characters (a layered

@@ -11,3 +11,13 @@ plugins:
   - jekyll-sitemap
 include:
   - llms.txt
+# Each page's own title and search description (front matter here keeps the Markdown clean on GitHub)
+defaults:
+  - scope: {path: "how-it-works.md"}
+    values:
+      title: "How it works: VMD retargeting, physics, faces"
+      description: "How mmdance retargets MMD (VMD) motion onto Mixamo rigs, simulates skirt, hair and tail bone chains, animates faces, and stages, renders and encodes the video."
+  - scope: {path: "new-character.md"}
+    values:
+      title: "Walkthrough: an MMD dance on a new character"
+      description: "Make a Tripo, Meshy or Mixamo character dance an MMD motion in Blender: check the rig, write project.toml, tune physics and face, render (also on a cloud GPU)."

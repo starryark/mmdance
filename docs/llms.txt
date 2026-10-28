@@ -1,6 +1,6 @@
 # mmdance
 
-> mmdance is an open-source (MIT), headless, config-driven Blender pipeline that makes a Mixamo-rigged character (Tripo, Meshy, Mixamo, AccuRig or a custom rig mapped by bone name) perform a MikuMikuDance (MMD) dance. From the character's .blend and an MMD motion package (VMD dance motion, VMD camera, facial VMD, song) it retargets the motion to the non-MMD rig, simulates and bakes skirt/overskirt/hair physics, drives facial expressions, builds a stage, renders with EEVEE and encodes a 1080p video with the music.
+> mmdance is an open-source (MIT), headless, config-driven and reproducible Blender pipeline that makes a Mixamo-rigged character (AI-generated / image-to-3D from Tripo or Meshy, Mixamo, AccuRig, or a custom rig mapped by bone name) perform a MikuMikuDance (MMD) dance. From the character's .blend and an MMD motion package (VMD dance motion, VMD camera, facial VMD, song) it retargets the motion to the non-MMD rig, simulates and bakes skirt/overskirt/hair physics, drives facial expressions, builds a stage, renders with EEVEE and encodes a 1080p video with the music.
 
 Key facts:
 - Input: a Blender file with a Mixamo-style humanoid rig (T-pose, Z up, facing -Y, metres) and VMD files. It does not import PMX/PMD models (use MMD Tools or SekaiBlender for those).
@@ -10,7 +10,19 @@ Key facts:
 - Repairs for auto-rigged meshes: rebuilt hands from finger bones (finger joints moved to drawn-hand proportions, thumbs to an MMD hand's rest), hair/cloth seam rip, hair curls with the cloth material, rigid boot weights, cross-side leg weights, unweighted vertices.
 - One project = one project.toml merged over mmdance/defaults.toml; CLI `python -m mmdance new|inspect|vmd|facial|build|stills|render|encode|pack|qa`.
 - Stage and output: a set appended from another .blend (stage.builder = "set"), a camera keyed from a track file (camera.track, e.g. solved from a reference video), a key light that follows the camera with light linking, motion blur, project code run on the built character (stage.steps, shared between projects by path), a packed scene for a cloud GPU (pack), two projects' renders cut into one video and size-limited copies (encode).
+- Reproducible: every stage caches its results under a key of its inputs; the reference production rebuilds to the same caches and frames (±1 GPU noise), and `encode` remakes the released DreamWings video from its frames, and both productions' 720p / 10 MB copies, byte for byte (copy recipes in project.toml, encode.copies).
 - Requirements: Blender 5.2+, MMD Tools extension, Python 3.11+ with numpy/scipy/opencv-python/scikit-image/pillow/matplotlib, ffmpeg. Built on Windows 11; rendered on Windows and on a Linux cloud GPU. Used with three Tripo characters and two dances; no assets are distributed.
+
+## Tasks: where to start
+- Make an AI-generated or Mixamo-rigged character dance an MMD (VMD) motion in Blender: [walkthrough](https://raw.githubusercontent.com/starryark/mmdance/main/docs/new-character.md), [template config](https://raw.githubusercontent.com/starryark/mmdance/main/projects/template/project.toml)
+- Use a VMD on a non-MMD rig without converting it to PMX: [retargeting](https://raw.githubusercontent.com/starryark/mmdance/main/docs/how-it-works.md) (motion section), [bone mapping](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/defaults.toml) (`[bones]`)
+- Add skirt, layered gown, long hair (per lock) or tail physics to an auto-rigged character: [physics](https://raw.githubusercontent.com/starryark/mmdance/main/docs/how-it-works.md), the `[skirt]`, `[overskirt]`, `[hair]`, `[tail]` and `[physics.*]` keys in defaults.toml
+- Blinks and lip sync from a facial VMD; a painted face (image-to-3D); a facial track that doesn't fit: [face](https://raw.githubusercontent.com/starryark/mmdance/main/docs/new-character.md), [tools/facial_vmd.py](https://raw.githubusercontent.com/starryark/mmdance/main/tools/facial_vmd.py), [face rebuilt as geometry](https://raw.githubusercontent.com/starryark/mmdance/main/projects/claude_chika_v3/README.md)
+- Recreate a dance video with the reference footage's camera moves, on a set from another .blend: [projects/dreamwings](https://raw.githubusercontent.com/starryark/mmdance/main/projects/dreamwings/README.md) (`camera.track`, `stage.builder = "set"`)
+- Two characters taking turns in one video: [projects/dreamwings](https://raw.githubusercontent.com/starryark/mmdance/main/projects/dreamwings/README.md) (`[[encode.parts]]`)
+- Wings, sleeves or props as your own code on the built character: [projects/chatgpt_chika](https://raw.githubusercontent.com/starryark/mmdance/main/projects/chatgpt_chika/README.md) (`stage.steps`)
+- Render on a Linux cloud GPU (RunPod, headless EEVEE): [rendering elsewhere](https://raw.githubusercontent.com/starryark/mmdance/main/docs/new-character.md) (section 5), [tools/pack.py](https://raw.githubusercontent.com/starryark/mmdance/main/tools/pack.py), [tools/remote](https://github.com/starryark/mmdance/tree/main/tools/remote)
+- Change the engine without breaking existing productions: [AGENTS.md](https://raw.githubusercontent.com/starryark/mmdance/main/AGENTS.md) (regression standard, pitfalls)
 
 ## Docs
 - [README](https://raw.githubusercontent.com/starryark/mmdance/main/README.md): overview, requirements, quick start, FAQ, related work
@@ -29,7 +41,12 @@ Key facts:
 - [mmdance/face_atlas.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/face_atlas.py): builds blink/smile/mouth tiles from a painted face texture
 - [mmdance/hand_sdf.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/hand_sdf.py): hands from finger bones (implicit surface, marching cubes)
 - [mmdance/camera.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/camera.py): MMD camera import, custom shots, follow camera
-- [mmdance/vmd.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/vmd.py): minimal VMD parser
+- [mmdance/vmd.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/vmd.py): minimal VMD parser and writer (bones, morphs)
+- [mmdance/stage.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/stage.py): stage builders (default, a set from another .blend, project builders), project steps, lining, key light following the camera, render settings
+- [mmdance/encode.py](https://raw.githubusercontent.com/starryark/mmdance/main/mmdance/encode.py): frames + song → MP4 with ffmpeg; parts from another project's render, song ending, size-limited copies
+- [tools/facial_vmd.py](https://raw.githubusercontent.com/starryark/mmdance/main/tools/facial_vmd.py): rewrite a facial VMD that doesn't fit the character (mouth remap, generated blinks)
+- [tools/pack.py](https://raw.githubusercontent.com/starryark/mmdance/main/tools/pack.py): self-contained copy of the built scene for another machine
+- [tools/remote/](https://github.com/starryark/mmdance/tree/main/tools/remote): Linux GPU setup for headless EEVEE, GPU check, multi-process render job
 
 ## Examples
 - [Demo video](https://github.com/starryark/mmdance#demo): DreamWings, two Tripo characters (Claude, then ChatGPT) taking turns in a 15 s motion-capture meme on an appended lobby set, filmed by a camera solved from the reference video, with motion blur; below it, the 94 s render of the first production (Tripo character, layered ball gown, MMD camera and song), with stills of the desk opening, skirt physics on a kick and a painted-face smile ([1](https://liuyangyi.com/mmdance/media/claude-chika-desk.jpg), [2](https://liuyangyi.com/mmdance/media/claude-chika-kick.jpg), [3](https://liuyangyi.com/mmdance/media/claude-chika-smile.jpg))
